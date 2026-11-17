@@ -15,18 +15,26 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 
 
+/**
+ * Felugró ablak (modális dialógus) új határidő felvételéhez.
+ * Egyedi, keret nélküli megjelenésű ablak: saját címsávval, űrlappal és gombokkal.
+ * Mentéskor ellenőrzi a beírt adatokat, majd az adatbázisba menti a határidőt.
+ */
 public class AddDeadlineDialog extends JDialog {
 
+    // A dátum mező placeholder szövege (a felhasználónak mutatott minta)
     public static final String DATE_PATTERN_TEXT = "ÉÉÉÉ/HH/NN - ÓÓ:PP";
+    // A dátum beolvasásához használt formátum; a STRICT miatt pl. a február 30. hibás lesz
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("uuuu/MM/dd - HH:mm").withResolverStyle(ResolverStyle.STRICT);
 
+    // Üzenetek
     private static final String REQUIRED_MESSAGE = "Kérjük, töltse ki a kötelező mezőt.";
     private static final String PRIORITY_HINT = "Válasszon egyet";
 
+    // Színek
     private static final Color WINDOW_BG = new Color(0xB0B0B0);
     private static final Color TITLE_BAR = new Color(0x3E5063);
-    private static final Color DOT = new Color(0x7B8D9E);
     private static final Color FIELD_BG = new Color(0x2B3A4A);
     private static final Color TEXT_DARK = new Color(0x2B3A4A);
     private static final Color HINT = new Color(0x8FA0B0);
@@ -34,6 +42,7 @@ public class AddDeadlineDialog extends JDialog {
     private static final Color BLUE = new Color(0x4A7AAB);
     private static final Color GRAY = new Color(0x7B8D9E);
 
+    // Keretek: normál és hibás állapot (a hibás piros keretet kap)
     private static final Border FIELD_BORDER = BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(FIELD_BG, 2), BorderFactory.createEmptyBorder(5, 7, 5, 7));
     private static final Border FIELD_ERROR_BORDER = BorderFactory.createCompoundBorder(
@@ -41,20 +50,28 @@ public class AddDeadlineDialog extends JDialog {
     private static final Border COMBO_BORDER = BorderFactory.createLineBorder(FIELD_BG, 2);
     private static final Border COMBO_ERROR_BORDER = BorderFactory.createLineBorder(ERROR, 2);
 
+    // Beviteli mezők
     private final JTextField titleField = new HintTextField("Adja meg a feladat nevét", 28);
     private final JTextField descriptionField = new HintTextField("Adjon meg egy rövid leírást", 28);
     private final JTextField dateField = new HintTextField(DATE_PATTERN_TEXT, 18);
-    private final JComboBox<String> priorityBox = new JComboBox<>(new String[]{"Low", "Normal", "High"});
+    private final JComboBox<String> priorityBox = new JComboBox<>(new String[]{"Alacsony", "Közepes", "Nagy"});
 
+    // Hibaüzenet-címkék a mezők alatt (üres állapotban egy szóköz, hogy ne ugráljon az elrendezés)
     private final JLabel titleError = createErrorLabel();
     private final JLabel descriptionError = createErrorLabel();
     private final JLabel dateError = createErrorLabel();
     private final JLabel priorityError = createErrorLabel();
     private final JLabel generalError = createErrorLabel();
 
+    // Sikerült-e a mentés (a hívó ebből tudja, kell-e frissítenie a listát)
     private boolean saved = false;
+    // Választott-e már prioritást a felhasználó (addig a "Válasszon egyet" hint látszik)
     private boolean priorityChosen = false;
 
+    /**
+     * Konstruktor: létrehozza a modális dialógust, felépíti a felületet,
+     * majd a szülőablak közepére helyezi.
+     */
     public AddDeadlineDialog(Frame owner) {
         super(owner, "Új határidő felvétele", true);
         buildUi();
@@ -64,14 +81,19 @@ public class AddDeadlineDialog extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 
+    /** Visszaadja, hogy a határidő sikeresen el lett-e mentve. */
     public boolean isSaved() {
         return saved;
     }
 
     // ---------------------------------------------------------------- felépítés
 
+    /**
+     * Összerakja az ablak teljes felületét: címsáv (fent), űrlap (középen), gombok (lent).
+     * Beállítja az ESC billentyűt is, ami bezárja az ablakot.
+     */
     private void buildUi() {
-        setUndecorated(true);
+        setUndecorated(true); // saját címsávot használunk, ezért nincs rendszerkeret
 
         styleTextField(titleField);
         styleTextField(descriptionField);
@@ -86,11 +108,17 @@ public class AddDeadlineDialog extends JDialog {
         root.add(buildButtons(), BorderLayout.SOUTH);
         setContentPane(root);
 
+        // ESC lenyomására az ablak bezárul
         getRootPane().registerKeyboardAction(e -> dispose(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
+    /**
+     * Létrehozza az ablak felső, sötétkék címsávját.
+     * Mivel az ablak keret nélküli, a címsáv húzásával lehet mozgatni az ablakot.
+     */
     private JComponent buildTitleBar() {
+        // A sáv hátterét saját rajzolással festjük ki
         JPanel bar = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -98,15 +126,13 @@ public class AddDeadlineDialog extends JDialog {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(TITLE_BAR);
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(DOT);
-                for (int i = 0; i < 3; i++) {
-                    g2.fillOval(12 + i * 16, (getHeight() - 9) / 2, 9, 9);
-                }
                 g2.dispose();
             }
         };
         bar.setPreferredSize(new Dimension(0, 28));
 
+        // Ablakmozgatás egérrel: nyomáskor eltároljuk a kattintás helyét,
+        // húzáskor az ablakot ennek megfelelően odébb tesszük
         final Point[] start = new Point[1];
         MouseAdapter drag = new MouseAdapter() {
             @Override
@@ -124,11 +150,13 @@ public class AddDeadlineDialog extends JDialog {
         return bar;
     }
 
+    /** Összeállítja az űrlapot: négy sor (név, leírás, dátum, prioritás) GridBagLayout-tal. */
     private JComponent buildForm() {
         JPanel form = new JPanel(new GridBagLayout());
         form.setOpaque(false);
         form.setBorder(BorderFactory.createEmptyBorder(16, 22, 4, 22));
 
+        // Az utolsó paraméter: true = a mező kitölti a teljes szélességet, false = fix méretű marad
         addRow(form, 0, "Feladat neve", titleField, titleError, true);
         addRow(form, 1, "Leírás", descriptionField, descriptionError, true);
         addRow(form, 2, "Határidő dátuma", dateField, dateError, false);
@@ -136,10 +164,18 @@ public class AddDeadlineDialog extends JDialog {
         return form;
     }
 
+    /**
+     * Egy űrlapsort ad hozzá: bal oldalon a felirat, jobb oldalon a beviteli mező,
+     * alatta a hozzá tartozó hibaüzenet-címke.
+     *
+     * @param row   a sor sorszáma (0-tól)
+     * @param wide  true esetén a mező kitölti a rendelkezésre álló szélességet
+     */
     private void addRow(JPanel form, int row, String labelText, JComponent field, JLabel error, boolean wide) {
         GridBagConstraints gc = new GridBagConstraints();
         gc.gridy = row;
 
+        // Bal oszlop: felirat
         JLabel label = new JLabel(labelText);
         label.setFont(new Font("Segoe UI", Font.BOLD, 15));
         label.setForeground(TEXT_DARK);
@@ -148,11 +184,13 @@ public class AddDeadlineDialog extends JDialog {
         gc.insets = new Insets(14, 0, 0, 20);
         form.add(label, gc);
 
+        // Jobb oszlop: mező + alatta a hibaüzenet
         JPanel cell = new JPanel(new BorderLayout(0, 2));
         cell.setOpaque(false);
         if (wide) {
             cell.add(field, BorderLayout.CENTER);
         } else {
+            // Keskeny mezőnél FlowLayout-ba tesszük, hogy megtartsa a saját méretét
             JPanel holder = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             holder.setOpaque(false);
             holder.add(field);
@@ -167,12 +205,16 @@ public class AddDeadlineDialog extends JDialog {
         form.add(cell, gc);
     }
 
+    /**
+     * Létrehozza az alsó sávot: balra az általános hibaüzenet (pl. adatbázis hiba),
+     * jobbra a "Mégse" és "Mentés" gomb. Az Enter a Mentés gombot aktiválja.
+     */
     private JComponent buildButtons() {
         FlatButton cancel = new FlatButton("Mégse", GRAY);
         FlatButton save = new FlatButton("Mentés", BLUE);
         cancel.addActionListener(e -> dispose());
         save.addActionListener(e -> onSave());
-        getRootPane().setDefaultButton(save);
+        getRootPane().setDefaultButton(save); // Enter = Mentés
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttons.setOpaque(false);
@@ -189,6 +231,7 @@ public class AddDeadlineDialog extends JDialog {
 
     // ---------------------------------------------------------------- stílus
 
+    /** Egy szövegmező egységes kinézetre állítása: betűtípus, színek, kurzor, keret. */
     private void styleTextField(JTextField field) {
         field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         field.setBackground(FIELD_BG);
@@ -197,15 +240,23 @@ public class AddDeadlineDialog extends JDialog {
         field.setBorder(FIELD_BORDER);
     }
 
+    /**
+     * A prioritás legördülő lista testreszabása:
+     *  - kezdetben nincs kiválasztott elem, helyette a "Válasszon egyet" hint látszik
+     *  - saját nyíl gomb és saját háttér/érték festés (BasicComboBoxUI)
+     *  - saját lista-renderelő a színekhez
+     *  - választáskor eltűnik a hibajelzés
+     */
     private void stylePriorityBox() {
         priorityBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         priorityBox.setBackground(FIELD_BG);
         priorityBox.setForeground(HINT);
         priorityBox.setBorder(COMBO_BORDER);
         priorityBox.setPreferredSize(new Dimension(185, 34));
-        priorityBox.setSelectedIndex(-1);
+        priorityBox.setSelectedIndex(-1); // nincs alapértelmezett kiválasztás
 
         priorityBox.setUI(new BasicComboBoxUI() {
+            // A lenyíló nyíl gomb: lapos, a mező színével megegyező hátterű
             @Override
             protected JButton createArrowButton() {
                 BasicArrowButton btn = new BasicArrowButton(
@@ -219,12 +270,15 @@ public class AddDeadlineDialog extends JDialog {
                 return btn;
             }
 
+            // A kiválasztott érték mögötti háttér kifestése (fókusztól függetlenül mindig ugyanaz)
             @Override
             public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
                 g.setColor(FIELD_BG);
                 g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
             }
 
+            // A mezőben látható aktuális érték kirajzolása:
+            // amíg nincs választás, halvány hint szín, utána fehér
             @Override
             @SuppressWarnings("unchecked")
             public void paintCurrentValue(Graphics g, Rectangle bounds, boolean hasFocus) {
@@ -239,6 +293,7 @@ public class AddDeadlineDialog extends JDialog {
         });
 
 
+        // Lista-renderelő: az index == -1 a mezőben látható érték, az index >= 0 a lenyíló lista elemei
         priorityBox.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index,
@@ -247,10 +302,12 @@ public class AddDeadlineDialog extends JDialog {
                 setBorder(BorderFactory.createEmptyBorder(4, 7, 4, 7));
 
                 if (index == -1 && (!priorityChosen || value == null)) {
+                    // Még nincs választás: hint szöveg
                     setText(PRIORITY_HINT);
                     setBackground(FIELD_BG);
                     setForeground(HINT);
                 } else {
+                    // Lenyíló lista elemei: a kijelölt elem világosabb hátteret kap
                     setBackground(isSelected ? TITLE_BAR : FIELD_BG);
                     setForeground(Color.WHITE);
                 }
@@ -258,6 +315,7 @@ public class AddDeadlineDialog extends JDialog {
             }
         });
 
+        // Fókuszváltáskor is ugyanaz a háttér maradjon (ne villanjon át a rendszer színére)
         priorityBox.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusGained(java.awt.event.FocusEvent e) {
@@ -273,6 +331,7 @@ public class AddDeadlineDialog extends JDialog {
         });
 
 
+        // Ha a felhasználó választott: jelöljük, hogy van választás, és töröljük a hibajelzést
         priorityBox.addActionListener(e -> {
             if (priorityBox.getSelectedIndex() != -1) {
                 priorityChosen = true;
@@ -285,6 +344,7 @@ public class AddDeadlineDialog extends JDialog {
     }
 
 
+    /** Létrehoz egy üres, piros, félkövér hibaüzenet-címkét (egy szóközzel, hogy foglalja a helyet). */
     private static JLabel createErrorLabel() {
         JLabel label = new JLabel(" ");
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -294,11 +354,13 @@ public class AddDeadlineDialog extends JDialog {
 
     // ---------------------------------------------------------------- hibák
 
+    /** Egy szövegmezőhöz hibát jelenít meg: kiírja az üzenetet és pirosra színezi a keretet. */
     private void setFieldError(JTextField field, JLabel label, String message) {
         label.setText(message);
         field.setBorder(FIELD_ERROR_BORDER);
     }
 
+    /** Minden hibajelzést töröl (keretek visszaállítása, üzenetek ürítése). Mentés előtt hívódik. */
     private void clearErrors() {
         for (JTextField f : new JTextField[]{titleField, descriptionField, dateField}) {
             f.setBorder(FIELD_BORDER);
@@ -312,16 +374,26 @@ public class AddDeadlineDialog extends JDialog {
 
     // ---------------------------------------------------------------- mentés
 
+    /**
+     * A "Mentés" gomb logikája:
+     *  1. törli a korábbi hibákat
+     *  2. beolvassa és ellenőrzi a mezőket (kötelező, hossz, dátumformátum, múltbeli dátum, prioritás)
+     *  3. hiba esetén az első hibás mezőre teszi a fókuszt és megáll
+     *  4. hibátlan adatnál az adatbázisba menti a határidőt, majd bezárja az ablakot
+     */
     private void onSave() {
         clearErrors();
 
+        // Mezők értékének beolvasása (a szélső szóközök levágásával)
         String title = titleField.getText().trim();
         String description = descriptionField.getText().trim();
         String dateText = dateField.getText().trim();
         String priority = priorityChosen ? (String) priorityBox.getSelectedItem() : null;
 
+        // Az első hibás mező, ide kerül majd a fókusz
         JComponent firstInvalid = null;
 
+        // Feladat neve: kötelező, legfeljebb 100 karakter
         if (title.isEmpty()) {
             setFieldError(titleField, titleError, REQUIRED_MESSAGE);
             firstInvalid = titleField;
@@ -330,6 +402,7 @@ public class AddDeadlineDialog extends JDialog {
             firstInvalid = titleField;
         }
 
+        // Leírás: kötelező, legfeljebb 255 karakter
         if (description.isEmpty()) {
             setFieldError(descriptionField, descriptionError, REQUIRED_MESSAGE);
             if (firstInvalid == null) firstInvalid = descriptionField;
@@ -338,6 +411,7 @@ public class AddDeadlineDialog extends JDialog {
             if (firstInvalid == null) firstInvalid = descriptionField;
         }
 
+        // Dátum: kötelező, megfelelő formátumú, és nem lehet múltbeli
         LocalDateTime date = null;
         if (dateText.isEmpty()) {
             setFieldError(dateField, dateError, REQUIRED_MESSAGE);
@@ -350,33 +424,43 @@ public class AddDeadlineDialog extends JDialog {
                     if (firstInvalid == null) firstInvalid = dateField;
                 }
             } catch (DateTimeParseException ex) {
+                // Rossz formátum vagy nem létező dátum
                 setFieldError(dateField, dateError, "Hibás formátum vagy dátum. Példa: 2026/11/20 - 14:30");
                 if (firstInvalid == null) firstInvalid = dateField;
             }
         }
 
+        // Prioritás: kötelező választani
         if (priority == null) {
             priorityBox.setBorder(COMBO_ERROR_BORDER);
             priorityError.setText("Kérjük, válasszon egyet.");
             if (firstInvalid == null) firstInvalid = priorityBox;
         }
 
+        // Ha volt hiba, az első hibás mezőre ugrunk, és nem mentünk
         if (firstInvalid != null) {
             firstInvalid.requestFocusInWindow();
             return;
         }
 
+        // Mentés az adatbázisba
         try {
             Deadline.deadline_add(0, title, description, date, priority, null);
             saved = true;
             dispose();
         } catch (SQLException ex) {
+            // Adatbázis hiba: rövid üzenet, a részletek az egérrel fölé állva (tooltip) láthatók
             generalError.setText("Nem sikerült menteni az adatbázisba.");
             generalError.setToolTipText(ex.getMessage());
         }
     }
 
     // ---------------------------------------------------------------- segéd osztályok
+
+    /**
+     * Szövegmező, ami üres állapotban halvány "hint" szöveget (placeholder) mutat.
+     * A hint csak megjelenik a mezőben, a mező tényleges tartalma (getText) üres marad.
+     */
     private static class HintTextField extends JTextField {
         private final String hint;
 
@@ -385,6 +469,7 @@ public class AddDeadlineDialog extends JDialog {
             this.hint = hint;
         }
 
+        // Normál kirajzolás után, ha a mező üres, ráfestjük a hint szöveget
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
@@ -396,13 +481,17 @@ public class AddDeadlineDialog extends JDialog {
                 g2.setFont(getFont());
                 Insets in = getInsets();
                 FontMetrics fm = g2.getFontMetrics();
-                int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent(); // függőleges középre igazítás
                 g2.drawString(hint, in.left, y);
                 g2.dispose();
             }
         }
     }
 
+    /**
+     * Lapos, lekerekített sarkú gomb egyszínű háttérrel és fehér felirattal.
+     * A gomb kirajzolását teljesen mi végezzük (paintComponent).
+     */
     private static class FlatButton extends JButton {
         private final Color background;
 
@@ -411,13 +500,15 @@ public class AddDeadlineDialog extends JDialog {
             this.background = background;
             setFont(new Font("Segoe UI", Font.BOLD, 14));
             setPreferredSize(new Dimension(92, 34));
+            // A Swing alapértelmezett gombkinézetének kikapcsolása
             setContentAreaFilled(false);
             setBorderPainted(false);
             setFocusPainted(false);
             setOpaque(false);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); // kéz kurzor fölé érve
         }
 
+        // Háttér (lekerekített téglalap) és középre igazított felirat kirajzolása
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
