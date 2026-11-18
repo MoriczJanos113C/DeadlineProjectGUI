@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 
 
 public class MainFrame extends JFrame {
@@ -232,7 +234,7 @@ public class MainFrame extends JFrame {
 
         return grid;
     }
-    //-------------------Éves nézet vége---------------------------
+
 
     // ---------------------------------------------------------------- hónap nézet
     private JComponent buildMonthView() {
@@ -303,7 +305,7 @@ public class MainFrame extends JFrame {
     }
 
     // ---------------------------------------------------------------- napi nézet
-    private JComponent buildDayView() {
+    /*private JComponent buildDayView() {
         List<Deadline> deadlines = load(current.atStartOfDay(), current.plusDays(1).atStartOfDay());
 
         JPanel list = new JPanel(new GridLayout(0, 1, 0, 0));
@@ -372,6 +374,116 @@ public class MainFrame extends JFrame {
         gc.weightx = 0;
         gc.gridx = 1;
         row.add(fixedCell(c1, 120), gc);
+        return row;
+    }
+
+    private JPanel fixedCell(JComponent c, int width) {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setOpaque(false);
+        p.setPreferredSize(new Dimension(width, 52));
+        p.add(c);
+        return p;
+    }*/
+    private JComponent buildDayView() {
+        List<Deadline> deadlines = load(current.atStartOfDay(), current.plusDays(1).atStartOfDay());
+
+        JPanel list = new JPanel(new GridLayout(0, 1, 0, 0));
+        list.setOpaque(false);
+
+        list.add(createRow(new JLabel(""), headerLabel("Prioritás"), headerLabel("Kész"), new JLabel("")));
+
+        for (Deadline d : deadlines) {
+            list.add(createDeadlineRow(d));
+        }
+
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.add(list, BorderLayout.NORTH);
+
+        if (deadlines.isEmpty()) {
+            JLabel empty = new JLabel("Erre a napra nincs határidő.", SwingConstants.CENTER);
+            empty.setFont(new Font("Segoe UI", Font.ITALIC, 16));
+            empty.setBorder(BorderFactory.createEmptyBorder(30, 0, 0, 0));
+            wrapper.add(empty, BorderLayout.CENTER);
+        }
+
+        JScrollPane scroll = new JScrollPane(wrapper);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        return scroll;
+    }
+
+    private JLabel headerLabel(String text) {
+        JLabel l = new JLabel(text);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        l.setForeground(DARK);
+        return l;
+    }
+
+    private JComponent createDeadlineRow(Deadline d) {
+        boolean expired = !d.isDone() && d.getDate().isBefore(LocalDateTime.now());
+
+        String desc = d.getDescription() == null ? "" : escape(d.getDescription());
+        String title = "<b>" + d.getDate().format(TIME) + "</b> - " + escape(d.getTitle());
+        if (expired) title = "<s>" + title + "</s>";
+
+        JLabel text = new JLabel("<html>" + title + "<br><i><font size=-1 color=#444444>" + desc + "</font></i></html>");
+        text.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        text.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+
+        String p = d.getPriority() == null ? "" : d.getPriority();
+        JLabel priority = new JLabel(p, SwingConstants.CENTER);
+        priority.setOpaque(true);
+        priority.setBorder(BorderFactory.createEmptyBorder(2, 12, 2, 12));
+        priority.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        priority.setBackground(switch (p) {
+            case "Nagy", "High" -> new Color(0xF2C9C9);
+            case "Alacsony", "Low" -> new Color(0xDBEAFE);
+            default -> new Color(0xCFE3F5);
+        });
+
+        JCheckBox done = new JCheckBox();
+        done.setSelected(d.isDone());
+        done.setOpaque(false);
+
+        FlatButton del = new FlatButton("🗑", new Color(0xB91C1C), Color.WHITE, new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        FlatButton edit = new FlatButton("✎", new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
+        del.setPreferredSize(new Dimension(30, 30));
+        edit.setPreferredSize(new Dimension(30, 30));
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        actions.setOpaque(false);
+        actions.add(del);
+        actions.add(edit);
+
+        JPanel row = createRow(text, priority, done, actions);
+        if (expired) {
+            row.setOpaque(true);
+            row.setBackground(new Color(0xD3D7DC));
+        }
+        return row;
+    }
+
+    private JPanel createRow(JComponent c0, JComponent c1, JComponent c2, JComponent c3) {
+        JPanel row = new JPanel(new GridBagLayout());
+        row.setOpaque(false);
+        row.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xB5BEC7)));
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridy = 0;
+        gc.fill = GridBagConstraints.BOTH;
+        gc.weighty = 1;
+
+        gc.gridx = 0;
+        gc.weightx = 1;
+        row.add(c0, gc);
+        gc.weightx = 0;
+        gc.gridx = 1;
+        row.add(fixedCell(c1, 110), gc);
+        gc.gridx = 2;
+        row.add(fixedCell(c2, 65), gc);
+        gc.gridx = 3;
+        row.add(fixedCell(c3, 95), gc);
         return row;
     }
 
