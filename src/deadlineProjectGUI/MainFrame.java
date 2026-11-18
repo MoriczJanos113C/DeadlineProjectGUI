@@ -454,7 +454,7 @@ public class MainFrame extends JFrame {
         FlatButton edit = new FlatButton("✎", new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
         del.setPreferredSize(new Dimension(30, 30));
         edit.setPreferredSize(new Dimension(30, 30));
-
+        edit.addActionListener(e -> DeadlineEditDialog.open(this, d.getId(), this::refresh));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
         actions.setOpaque(false);
         actions.add(del);
