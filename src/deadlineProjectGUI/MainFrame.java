@@ -128,6 +128,9 @@ public class MainFrame extends JFrame {
         main.setBackground(BACKGROUND);
         main.add(headerWrap, BorderLayout.NORTH);
         main.add(content, BorderLayout.CENTER);
+        //priority codex
+        main.add(buildPriorityLegend(), BorderLayout.SOUTH);
+
         return main;
     }
 
@@ -551,4 +554,34 @@ public class MainFrame extends JFrame {
             g2.dispose();
         }
     }
+    //Priority codex_2
+    private JComponent buildPriorityLegend() {
+        JPanel legend = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 8));
+        legend.setOpaque(false);
+        legend.setBorder(BorderFactory.createEmptyBorder(0, 25, 8, 25));
+
+        legend.add(legendItem("Alacsony prioritás", new Color(0xDBEAFE)));
+        legend.add(legendItem("Közepes prioritás", new Color(0xCFE3F5)));
+        legend.add(legendItem("Nagy prioritás", new Color(0xF2C9C9)));
+        return legend;
+    }
+
+    private JComponent legendItem(String text, Color color) {
+        JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        item.setOpaque(false);
+
+        JPanel line = new JPanel();
+        line.setBackground(color);
+        line.setPreferredSize(new Dimension(28, 6));
+        line.setBorder(BorderFactory.createLineBorder(new Color(0xB5BEC7)));
+
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        label.setForeground(DARK);
+
+        item.add(line);
+        item.add(label);
+        return item;
+    }
+
 }
