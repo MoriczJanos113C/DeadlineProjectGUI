@@ -30,6 +30,9 @@ public class MainFrame extends JFrame {
     private View view = View.MONTH;
     private LocalDate current = LocalDate.now();
 
+    //private int yearBlockStart = 2020;
+    private static final Color SELECT_BLUE = new Color(0x89D4F5);
+
     private final JLabel titleLabel = new JLabel("", SwingConstants.CENTER);
     private final JPanel content = new JPanel(new BorderLayout());
     private final Map<View, JLabel> navLabels = new HashMap<>();
@@ -138,12 +141,11 @@ public class MainFrame extends JFrame {
 
         content.removeAll();
         switch (view) {
-            case YEAR -> {
-                titleLabel.setText(String.valueOf(current.getYear()));
-                JLabel info = new JLabel("Éves nézet - még nincs kész", SwingConstants.CENTER);
-                info.setFont(new Font("Segoe UI", Font.ITALIC, 18));
-                content.add(info, BorderLayout.CENTER);
-            }
+                case YEAR -> {
+                    int[] range = getYearRange();
+                    titleLabel.setText(range[0] + "-" + range[1]);
+                    content.add(buildYearView(), BorderLayout.CENTER);
+                }
             case MONTH -> {
                 titleLabel.setText(current.getYear() + ". " + capitalize(monthName(current)));
                 content.add(buildMonthView(), BorderLayout.CENTER);
@@ -159,12 +161,78 @@ public class MainFrame extends JFrame {
 
     private void shift(int direction) {
         switch (view) {
+            //Dinamikus banner update éves nézetben
             case YEAR -> current = current.plusYears(direction);
             case MONTH -> current = current.plusMonths(direction);
             case DAY -> current = current.plusDays(direction);
         }
         refresh();
     }
+    //Dinamikus banner update logika
+    private int[] getYearRange() {
+        int endYear = current.getYear();
+        int startYear = endYear - 5; // 6 years total (2x3 grid), ending on current.getYear()
+        return new int[]{startYear, endYear};
+    }
+    //--------------------Éves Nézet-------------------------------------
+    private JComponent buildYearView() {
+        int[] range = getYearRange();
+        int startYear = range[0];
+        int endYear = range[1];
+        titleLabel.setText(startYear + "-" + endYear);
+
+        JPanel grid = new JPanel(new GridLayout(2, 3, 24, 24));
+        grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createEmptyBorder(55, 45, 75, 45));
+
+        for (int year = startYear; year <= endYear; year++) {
+            final int y = year;
+            boolean isCurrent = (y == endYear);
+
+            JPanel cell = new JPanel(new GridBagLayout());
+            cell.setOpaque(false);
+            cell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            JLabel yearLabel = new JLabel(String.valueOf(y), SwingConstants.CENTER);
+            yearLabel.setFont(new Font("Segoe UI", Font.PLAIN, 32));
+            yearLabel.setForeground(DARK);
+            yearLabel.setOpaque(isCurrent);
+            yearLabel.setBackground(new Color(0x89D4F5));
+            yearLabel.setBorder(BorderFactory.createEmptyBorder(10, 22, 10, 22));
+
+            cell.add(yearLabel);
+            cell.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    current = current.withYear(y);
+                    view = View.MONTH;
+                    refresh();
+                }
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (!isCurrent) {
+                        yearLabel.setOpaque(true);
+                        yearLabel.setBackground(new Color(0xDCEAF5));
+                        yearLabel.repaint();
+                    }
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (!isCurrent) {
+                        yearLabel.setOpaque(false);
+                        yearLabel.repaint();
+                    }
+                }
+            });
+
+            grid.add(cell);
+        }
+
+        return grid;
+    }
+    //-------------------Éves nézet vége---------------------------
 
     // ---------------------------------------------------------------- hónap nézet
     private JComponent buildMonthView() {
