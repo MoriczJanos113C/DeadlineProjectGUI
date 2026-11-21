@@ -69,6 +69,8 @@ public class AddDeadlineDialog extends JDialog {
     private boolean saved = false;
     // Választott-e már prioritást a felhasználó (addig a "Válasszon egyet" hint látszik)
     private boolean priorityChosen = false;
+    // Választott-e már ismétlődést a felhasználó (addig halvány szürke a mező szövege)
+    private boolean recurrenceChosen = false;
 
     /**
      * Konstruktor: létrehozza a modális dialógust, felépíti a felületet,
@@ -466,7 +468,7 @@ public class AddDeadlineDialog extends JDialog {
     private void styleRecurrenceBox() {
         recurrenceBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         recurrenceBox.setBackground(FIELD_BG);
-        recurrenceBox.setForeground(Color.WHITE);
+        recurrenceBox.setForeground(HINT);
         recurrenceBox.setBorder(COMBO_BORDER);
         recurrenceBox.setPreferredSize(new Dimension(185, 34));
 
@@ -484,6 +486,19 @@ public class AddDeadlineDialog extends JDialog {
                 g.setColor(FIELD_BG);
                 g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
             }
+
+            // Amíg nincs választás, halvány hint szín, utána fehér (mint a prioritásnál)
+            @Override
+            @SuppressWarnings("unchecked")
+            public void paintCurrentValue(Graphics g, Rectangle bounds, boolean hasFocus) {
+                ListCellRenderer<Object> renderer = comboBox.getRenderer();
+                Component c = renderer.getListCellRendererComponent(
+                        listBox, comboBox.getSelectedItem(), -1, false, false);
+                c.setFont(comboBox.getFont());
+                c.setBackground(FIELD_BG);
+                c.setForeground(recurrenceChosen ? Color.WHITE : HINT);
+                currentValuePane.paintComponent(g, c, comboBox, bounds.x, bounds.y, bounds.width, bounds.height, c instanceof JPanel);
+            }
         });
 
         recurrenceBox.setRenderer(new DefaultListCellRenderer() {
@@ -496,6 +511,13 @@ public class AddDeadlineDialog extends JDialog {
                 setForeground(Color.WHITE);
                 return this;
             }
+        });
+
+        // Ha a felhasználó választott: fehérre vált a szöveg
+        recurrenceBox.addActionListener(e -> {
+            recurrenceChosen = true;
+            recurrenceBox.setForeground(Color.WHITE);
+            recurrenceBox.repaint();
         });
     }
 
