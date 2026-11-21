@@ -76,6 +76,30 @@ public class Deadline {
         }
     }
 
+    //törlés
+    public static boolean deadline_delete(int id) throws SQLException {
+        String sql = "DELETE FROM deadlines WHERE id = ?";
+        try (Connection c = Database.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    //szerkesztés
+    public static boolean deadline_done(int id, boolean isDone) throws SQLException {
+        String sql = "UPDATE deadlines SET done = ? WHERE id = ?";
+        try (Connection c = Database.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            if (isDone) {
+                ps.setDate(1, java.sql.Date.valueOf(LocalDate.now()));
+            } else {
+                ps.setNull(1, Types.DATE);
+            }
+            ps.setInt(2, id);
+            return ps.executeUpdate() > 0;
+        }
+    }
 
 
 }

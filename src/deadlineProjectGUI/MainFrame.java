@@ -449,10 +449,12 @@ public class MainFrame extends JFrame {
         JCheckBox done = new JCheckBox();
         done.setSelected(d.isDone());
         done.setOpaque(false);
+        done.addActionListener(e -> DeadlineActions.setDone(this, d, done.isSelected(), this::refresh));
 
         FlatButton del = new FlatButton("🗑", new Color(0xB91C1C), Color.WHITE, new Font("Segoe UI Emoji", Font.PLAIN, 13));
         FlatButton edit = new FlatButton("✎", new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
         del.setPreferredSize(new Dimension(30, 30));
+        del.addActionListener(e -> DeadlineActions.deleteDeadline(this, d, this::refresh));
         edit.setPreferredSize(new Dimension(30, 30));
         edit.addActionListener(e -> DeadlineEditDialog.open(this, d.getId(), this::refresh));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
