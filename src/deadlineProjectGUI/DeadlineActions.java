@@ -41,16 +41,29 @@ public class DeadlineActions {
     }
 
     public static void setDone(Component parent, Deadline d, boolean isDone, Runnable onDone) {
+        if (!isDone) {
+            return; // kész állapot nem vonható vissza
+        }
+        int choice = JOptionPane.showConfirmDialog(parent,
+                "Biztosan kész lett?\n\"" + d.getTitle() + "\"\n"
+                        + "A kész határidő később nem szerkeszthető.",
+                "Késznek jelölés",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.PLAIN_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) {
+            if (onDone != null) {
+                onDone.run(); // újrarajzolás, a pipa visszaáll üresre
+            }
+            return;
+        }
         try {
-            Deadline.deadline_done(d.getId(), isDone);
-            if (isDone) {
-                java.time.LocalDateTime next = DeadlineUpdater.deadline_spawn_next_if_recurring(d.getId());
-                if (next != null) {
-                    JOptionPane.showMessageDialog(parent,
-                            "Kész! Az ismétlődő határidő következő alkalma létrejött:\n"
-                                    + next.format(DeadlineUpdater.DATE_FORMAT),
-                            "Ismétlődés", JOptionPane.INFORMATION_MESSAGE);
-                }
+            Deadline.deadline_done(d.getId(), true);
+            java.time.LocalDateTime next = DeadlineUpdater.deadline_spawn_next_if_recurring(d.getId());
+            if (next != null) {
+                JOptionPane.showMessageDialog(parent,
+                        "Kész! Az ismétlődő határidő következő alkalma létrejött:\n"
+                                + next.format(DeadlineUpdater.DATE_FORMAT),
+                        "Ismétlődés", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (java.sql.SQLException ex) {
             showError(parent, "Nem sikerült menteni az állapotot!\n" + ex.getMessage());

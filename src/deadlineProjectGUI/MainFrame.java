@@ -446,20 +446,22 @@ public class MainFrame extends JFrame {
             default -> new Color(0xCFE3F5);
         });
 
+        boolean locked = expired || d.isDone();
+
         JCheckBox done = new JCheckBox();
         done.setSelected(d.isDone());
         done.setOpaque(false);
-        done.setEnabled(!expired);
-        if (!expired) {
-            done.addActionListener(e -> DeadlineActions.setDone(this, d, done.isSelected(), this::refresh));
+        done.setEnabled(!locked);
+        if (!locked) {
+            done.addActionListener(e -> DeadlineActions.setDone(this, d, true, this::refresh));
         }
 
         FlatButton del = new FlatButton("🗑", new Color(0xB91C1C), Color.WHITE, new Font("Segoe UI Emoji", Font.PLAIN, 13));
-        FlatButton edit = new FlatButton("✎", expired ? new Color(0x9CA3AF) : new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
+        FlatButton edit = new FlatButton("✎", locked ? new Color(0x9CA3AF) : new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
         del.setPreferredSize(new Dimension(30, 30));
         del.addActionListener(e -> DeadlineActions.deleteDeadline(this, d, this::refresh));
         edit.setPreferredSize(new Dimension(30, 30));
-        if (!expired) {
+        if (!locked) {
             edit.addActionListener(e -> DeadlineEditDialog.open(this, d.getId(), this::refresh));
         }
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));

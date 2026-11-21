@@ -173,6 +173,10 @@ public class DeadlineUpdater {
                 }
             }
         }
+        Deadline current = deadline_get(id);
+        if (current != null && current.isDone()) {
+            errors.put(F_DB, "Kész határidő nem szerkeszthető.");
+        }
         if (!errors.isEmpty()) return errors;
         ensureRecurrenceColumn();
 
