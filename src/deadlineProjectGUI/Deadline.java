@@ -101,22 +101,4 @@ public class Deadline {
         }
     }
 
-    //ismétlődő határidők
-    public static boolean deadline_exists_at(LocalDateTime date, int excludeId) throws SQLException {
-        LocalDateTime from = date.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
-        LocalDateTime to = from.plusMinutes(1);
-        String sql = "SELECT 1 FROM deadlines "
-                + "WHERE deadlines_date >= ? AND deadlines_date < ? AND id <> ? LIMIT 1";
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setTimestamp(1, Timestamp.valueOf(from));
-            ps.setTimestamp(2, Timestamp.valueOf(to));
-            ps.setInt(3, excludeId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
-
-
 }

@@ -170,8 +170,6 @@ public class DeadlineUpdater {
                     errors.put(F_DATE, "Lejárt határidő dátuma nem módosítható.");
                 } else if (changed && newDate.isBefore(LocalDateTime.now())) {
                     errors.put(F_DATE, "Múltbeli időpont nem adható meg.");
-                } else if (changed && slotTaken(newDate, id)) {
-                    errors.put(F_DATE, "Erre az időpontra már van határidő.");
                 }
             }
         }
@@ -207,15 +205,6 @@ public class DeadlineUpdater {
         return d.getDate() != null && !d.isDone() && d.getDate().isBefore(now);
     }
 
-    private static boolean slotTaken(LocalDateTime time, int excludeId) {
-        try {
-            return Deadline.deadline_exists_at(time, excludeId);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
     public static ExpiredResult deadline_handle_expired(int id) {
         Deadline d = deadline_get(id);
         if (d == null) return ExpiredResult.NOT_FOUND;
@@ -225,7 +214,7 @@ public class DeadlineUpdater {
         if (rec == Recurrence.NONE) return ExpiredResult.STILL_EXPIRED;
 
         LocalDateTime next = d.getDate();
-        do { next = rec.next(next); } while (next.isBefore(now) || slotTaken(next, id));
+        do { next = rec.next(next); } while (next.isBefore(now));
 
         String sql = "UPDATE deadlines SET deadlines_date = ?, done = NULL WHERE id = ?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -253,5 +242,38 @@ public class DeadlineUpdater {
         int moved = 0;
         for (int id : ids) if (deadline_handle_expired(id) == ExpiredResult.RESCHEDULED) moved++;
         return moved;
+    }
+
+    public static void deadline_set_recurrence(int id, Recurrence rec) {
+        ensureRecurrenceColumn();
+        String sql = "UPDATE deadlines SET recurrence = ? WHERE id = ?";
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, (rec == null ? Recurrence.NONE : rec).name());
+            ps.setInt(2, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static LocalDateTime deadline_spawn_next_if_recurring(int id) {
+        Deadline d = deadline_get(id);
+        if (d == null) return null;
+        Recurrence rec = deadline_get_recurrence(id);
+        if (rec == Recurrence.NONE) return null;
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime next = d.getDate();
+        do { next = rec.next(next); } while (next.isBefore(now));
+
+        try {
+            int newId = Deadline.deadline_add(0, d.getTitle(), d.getDescription(), next, d.getPriority(), null);
+            deadline_set_recurrence(newId, rec);
+            deadline_set_recurrence(id, Recurrence.NONE);
+            return next;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

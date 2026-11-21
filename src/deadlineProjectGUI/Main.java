@@ -16,6 +16,7 @@ public class Main {
                         "Adatbázis hiba", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+            DeadlineUpdater.deadline_handle_all_expired();
             new MainFrame().setVisible(true);
         });
     }

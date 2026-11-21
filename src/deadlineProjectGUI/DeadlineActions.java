@@ -43,6 +43,15 @@ public class DeadlineActions {
     public static void setDone(Component parent, Deadline d, boolean isDone, Runnable onDone) {
         try {
             Deadline.deadline_done(d.getId(), isDone);
+            if (isDone) {
+                java.time.LocalDateTime next = DeadlineUpdater.deadline_spawn_next_if_recurring(d.getId());
+                if (next != null) {
+                    JOptionPane.showMessageDialog(parent,
+                            "Kész! Az ismétlődő határidő következő alkalma létrejött:\n"
+                                    + next.format(DeadlineUpdater.DATE_FORMAT),
+                            "Ismétlődés", JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
         } catch (java.sql.SQLException ex) {
             showError(parent, "Nem sikerült menteni az állapotot!\n" + ex.getMessage());
         }

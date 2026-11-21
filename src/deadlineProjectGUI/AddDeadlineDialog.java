@@ -55,6 +55,8 @@ public class AddDeadlineDialog extends JDialog {
     private final JTextField descriptionField = new HintTextField("Adjon meg egy rövid leírást", 28);
     private final JTextField dateField = new HintTextField(DATE_PATTERN_TEXT, 18);
     private final JComboBox<String> priorityBox = new JComboBox<>(new String[]{"Alacsony", "Közepes", "Nagy"});
+    private final JComboBox<DeadlineUpdater.Recurrence> recurrenceBox =
+            new JComboBox<>(DeadlineUpdater.Recurrence.values());
 
     // Hibaüzenet-címkék a mezők alatt (üres állapotban egy szóköz, hogy ne ugráljon az elrendezés)
     private final JLabel titleError = createErrorLabel();
@@ -99,6 +101,7 @@ public class AddDeadlineDialog extends JDialog {
         styleTextField(descriptionField);
         styleTextField(dateField);
         stylePriorityBox();
+        styleRecurrenceBox();
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(WINDOW_BG);
@@ -161,6 +164,7 @@ public class AddDeadlineDialog extends JDialog {
         addRow(form, 1, "Leírás", descriptionField, descriptionError, true);
         addRow(form, 2, "Határidő dátuma", dateField, dateError, false);
         addRow(form, 3, "Prioritás", priorityBox, priorityError, false);
+        addRow(form, 4, "Ismétlődés", recurrenceBox, new JLabel(" "), false);
         return form;
     }
 
@@ -445,12 +449,9 @@ public class AddDeadlineDialog extends JDialog {
 
         // Mentés az adatbázisba
         try {
-            if (Deadline.deadline_exists_at(date, 0)) {
-                setFieldError(dateField, dateError, "Erre az időpontra már van határidő.");
-                dateField.requestFocusInWindow();
-                return;
-            }
-            Deadline.deadline_add(0, title, description, date, priority, null);
+            int newId = Deadline.deadline_add(0, title, description, date, priority, null);
+            DeadlineUpdater.deadline_set_recurrence(newId,
+                    (DeadlineUpdater.Recurrence) recurrenceBox.getSelectedItem());
             saved = true;
             dispose();
         } catch (SQLException ex) {
@@ -461,6 +462,42 @@ public class AddDeadlineDialog extends JDialog {
     }
 
     // ---------------------------------------------------------------- segéd osztályok
+
+    private void styleRecurrenceBox() {
+        recurrenceBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        recurrenceBox.setBackground(FIELD_BG);
+        recurrenceBox.setForeground(Color.WHITE);
+        recurrenceBox.setBorder(COMBO_BORDER);
+        recurrenceBox.setPreferredSize(new Dimension(185, 34));
+
+        recurrenceBox.setUI(new BasicComboBoxUI() {
+            @Override
+            protected JButton createArrowButton() {
+                BasicArrowButton btn = new BasicArrowButton(
+                        BasicArrowButton.SOUTH, FIELD_BG, FIELD_BG, HINT, FIELD_BG);
+                btn.setBorder(BorderFactory.createEmptyBorder());
+                return btn;
+            }
+
+            @Override
+            public void paintCurrentValueBackground(Graphics g, Rectangle bounds, boolean hasFocus) {
+                g.setColor(FIELD_BG);
+                g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            }
+        });
+
+        recurrenceBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                          boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                setBorder(BorderFactory.createEmptyBorder(4, 7, 4, 7));
+                setBackground(index >= 0 && isSelected ? TITLE_BAR : FIELD_BG);
+                setForeground(Color.WHITE);
+                return this;
+            }
+        });
+    }
 
     /**
      * Szövegmező, ami üres állapotban halvány "hint" szöveget (placeholder) mutat.
