@@ -14,7 +14,6 @@ import java.util.Map;
 
 public class DeadlineEditDialog extends JDialog {
 
-    // Színek
     private static final Color WINDOW_BG = new Color(0xB0B0B0);
     private static final Color TITLE_BAR = new Color(0x3E5063);
     private static final Color FIELD_BG = new Color(0x2B3A4A);
@@ -41,7 +40,8 @@ public class DeadlineEditDialog extends JDialog {
     private final JTextField descriptionField = new JTextField(28);
     private final JTextField dateField = new JTextField(18);
     private final JComboBox<String> priorityBox = new JComboBox<>(DeadlineUpdater.PRIORITIES.toArray(new String[0]));
-    private final JCheckBox doneBox = new JCheckBox("Kész");
+    private final JComboBox<DeadlineUpdater.Recurrence> recurrenceBox =
+            new JComboBox<>(DeadlineUpdater.Recurrence.values());
 
     private final JLabel titleError = createErrorLabel();
     private final JLabel descriptionError = createErrorLabel();
@@ -49,6 +49,7 @@ public class DeadlineEditDialog extends JDialog {
     private final JLabel priorityError = createErrorLabel();
     private final JLabel generalError = createErrorLabel();
     private final JLabel expiredInfo = new JLabel(" ");
+    private FlatButton expiredButton;
 
     public DeadlineEditDialog(Frame owner, int deadlineId) {
         super(owner, "Határidő szerkesztése", true);
@@ -99,11 +100,7 @@ public class DeadlineEditDialog extends JDialog {
         styleTextField(descriptionField);
         styleTextField(dateField);
         styleComboBox(priorityBox, 185);
-
-        doneBox.setOpaque(false);
-        doneBox.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        doneBox.setForeground(TEXT_DARK);
-        doneBox.setFocusPainted(false);
+        styleComboBox(recurrenceBox, 185);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(WINDOW_BG);
@@ -157,7 +154,7 @@ public class DeadlineEditDialog extends JDialog {
         addRow(form, 2, "Leírás", descriptionField, descriptionError, true);
         addRow(form, 3, "Határidő dátuma", dateField, dateError, false);
         addRow(form, 4, "Prioritás", priorityBox, priorityError, false);
-        addRow(form, 5, "Állapot", doneBox, new JLabel(" "), false);
+        addRow(form, 5, "Ismétlődés", recurrenceBox, new JLabel(" "), false);
         return form;
     }
 
@@ -195,12 +192,17 @@ public class DeadlineEditDialog extends JDialog {
     private JComponent buildButtons() {
         FlatButton cancel = new FlatButton("Mégse", GRAY);
         FlatButton save = new FlatButton("Mentés", BLUE);
+        expiredButton = new FlatButton("Lejárt kezelése", EXPIRED);
+        expiredButton.setPreferredSize(new Dimension(140, 34));
+        expiredButton.setToolTipText("Ismétlődő lejárt határidőt a következő alkalomra léptet");
         cancel.addActionListener(e -> dispose());
         save.addActionListener(e -> onSave());
+        expiredButton.addActionListener(e -> onHandleExpired());
         getRootPane().setDefaultButton(save);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttons.setOpaque(false);
+        buttons.add(expiredButton);
         buttons.add(cancel);
         buttons.add(save);
 
@@ -272,13 +274,17 @@ public class DeadlineEditDialog extends JDialog {
         descriptionField.setText(d.getDescription());
         dateField.setText(d.getDate().format(DeadlineUpdater.DATE_FORMAT));
         priorityBox.setSelectedItem(d.getPriority());
-        doneBox.setSelected(d.isDone());
+        recurrenceBox.setSelectedItem(DeadlineUpdater.deadline_get_recurrence(deadlineId));
         updateExpiredState();
     }
 
     private void updateExpiredState() {
         boolean expired = DeadlineUpdater.deadline_is_expired(deadlineId);
-        expiredInfo.setText(expired ? "⚠ Ez a határidő lejárt!" : " ");
+        expiredInfo.setText(expired ? "⚠ Ez a határidő lejárt, a dátuma nem módosítható." : " ");
+        dateField.setEditable(!expired);
+        dateField.setForeground(expired ? HINT : Color.WHITE);
+        dateField.setToolTipText(expired ? "Lejárt határidő dátuma nem módosítható" : null);
+        expiredButton.setVisible(expired);
     }
 
     private void clearErrors() {
@@ -330,20 +336,41 @@ public class DeadlineEditDialog extends JDialog {
     private void onSave() {
         clearErrors();
 
-        LocalDate done = null;
-        if (doneBox.isSelected()) {
-            done = current.isDone() ? current.getDone() : LocalDate.now();
-        }
+        LocalDate done = current.getDone();
 
         Map<String, String> errors = DeadlineUpdater.deadline_edit(
                 deadlineId, titleField.getText(), descriptionField.getText(), dateField.getText(),
-                (String) priorityBox.getSelectedItem(), done);
+                (String) priorityBox.getSelectedItem(), done,
+                (DeadlineUpdater.Recurrence) recurrenceBox.getSelectedItem());
 
         if (errors.isEmpty()) {
             saved = true;
             dispose();
         } else {
             showErrors(errors);
+        }
+    }
+
+    private void onHandleExpired() {
+        DeadlineUpdater.ExpiredResult result = DeadlineUpdater.deadline_handle_expired(deadlineId);
+        switch (result) {
+            case RESCHEDULED -> {
+                saved = true;
+                current = DeadlineUpdater.deadline_get(deadlineId);
+                clearErrors();
+                fillFields(current);
+                JOptionPane.showMessageDialog(this,
+                        "Az ismétlődő határidő a következő alkalomra lépett:\n"
+                                + current.getDate().format(DeadlineUpdater.DATE_FORMAT),
+                        "Lejárt határidő", JOptionPane.INFORMATION_MESSAGE);
+            }
+            case STILL_EXPIRED -> JOptionPane.showMessageDialog(this,
+                    "Ez a határidő nem ismétlődő, ezért lejártként marad.\n",
+                    "Lejárt határidő", JOptionPane.INFORMATION_MESSAGE);
+            case NOT_EXPIRED -> JOptionPane.showMessageDialog(this,
+                    "A határidő még nem járt le.", "Lejárt határidő", JOptionPane.INFORMATION_MESSAGE);
+            case NOT_FOUND -> JOptionPane.showMessageDialog(this,
+                    "A határidő nem található.", "Hiba", JOptionPane.ERROR_MESSAGE);
         }
     }
 
