@@ -170,6 +170,8 @@ public class DeadlineUpdater {
                     errors.put(F_DATE, "Lejárt határidő dátuma nem módosítható.");
                 } else if (changed && newDate.isBefore(LocalDateTime.now())) {
                     errors.put(F_DATE, "Múltbeli időpont nem adható meg.");
+                } else if (changed && slotTaken(newDate, id)) {
+                    errors.put(F_DATE, "Erre az időpontra már van határidő.");
                 }
             }
         }
@@ -205,6 +207,15 @@ public class DeadlineUpdater {
         return d.getDate() != null && !d.isDone() && d.getDate().isBefore(now);
     }
 
+    private static boolean slotTaken(LocalDateTime time, int excludeId) {
+        try {
+            return Deadline.deadline_exists_at(time, excludeId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public static ExpiredResult deadline_handle_expired(int id) {
         Deadline d = deadline_get(id);
         if (d == null) return ExpiredResult.NOT_FOUND;
@@ -214,7 +225,7 @@ public class DeadlineUpdater {
         if (rec == Recurrence.NONE) return ExpiredResult.STILL_EXPIRED;
 
         LocalDateTime next = d.getDate();
-        do { next = rec.next(next); } while (next.isBefore(now));
+        do { next = rec.next(next); } while (next.isBefore(now) || slotTaken(next, id));
 
         String sql = "UPDATE deadlines SET deadlines_date = ?, done = NULL WHERE id = ?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {

@@ -445,6 +445,11 @@ public class AddDeadlineDialog extends JDialog {
 
         // Mentés az adatbázisba
         try {
+            if (Deadline.deadline_exists_at(date, 0)) {
+                setFieldError(dateField, dateError, "Erre az időpontra már van határidő.");
+                dateField.requestFocusInWindow();
+                return;
+            }
             Deadline.deadline_add(0, title, description, date, priority, null);
             saved = true;
             dispose();

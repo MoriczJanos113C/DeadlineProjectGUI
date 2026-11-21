@@ -40,8 +40,6 @@ public class DeadlineEditDialog extends JDialog {
     private final JTextField descriptionField = new JTextField(28);
     private final JTextField dateField = new JTextField(18);
     private final JComboBox<String> priorityBox = new JComboBox<>(DeadlineUpdater.PRIORITIES.toArray(new String[0]));
-    private final JComboBox<DeadlineUpdater.Recurrence> recurrenceBox =
-            new JComboBox<>(DeadlineUpdater.Recurrence.values());
 
     private final JLabel titleError = createErrorLabel();
     private final JLabel descriptionError = createErrorLabel();
@@ -100,7 +98,6 @@ public class DeadlineEditDialog extends JDialog {
         styleTextField(descriptionField);
         styleTextField(dateField);
         styleComboBox(priorityBox, 185);
-        styleComboBox(recurrenceBox, 185);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(WINDOW_BG);
@@ -154,7 +151,6 @@ public class DeadlineEditDialog extends JDialog {
         addRow(form, 2, "Leírás", descriptionField, descriptionError, true);
         addRow(form, 3, "Határidő dátuma", dateField, dateError, false);
         addRow(form, 4, "Prioritás", priorityBox, priorityError, false);
-        addRow(form, 5, "Ismétlődés", recurrenceBox, new JLabel(" "), false);
         return form;
     }
 
@@ -274,7 +270,6 @@ public class DeadlineEditDialog extends JDialog {
         descriptionField.setText(d.getDescription());
         dateField.setText(d.getDate().format(DeadlineUpdater.DATE_FORMAT));
         priorityBox.setSelectedItem(d.getPriority());
-        recurrenceBox.setSelectedItem(DeadlineUpdater.deadline_get_recurrence(deadlineId));
         updateExpiredState();
     }
 
@@ -340,8 +335,7 @@ public class DeadlineEditDialog extends JDialog {
 
         Map<String, String> errors = DeadlineUpdater.deadline_edit(
                 deadlineId, titleField.getText(), descriptionField.getText(), dateField.getText(),
-                (String) priorityBox.getSelectedItem(), done,
-                (DeadlineUpdater.Recurrence) recurrenceBox.getSelectedItem());
+                (String) priorityBox.getSelectedItem(), done);
 
         if (errors.isEmpty()) {
             saved = true;
