@@ -86,7 +86,7 @@ public class Deadline {
         }
     }
 
-    //szerkesztés
+    //késznek jelölés
     public static boolean deadline_done(int id, boolean isDone) throws SQLException {
         String sql = "UPDATE deadlines SET done = ? WHERE id = ?";
         try (Connection c = Database.getConnection();

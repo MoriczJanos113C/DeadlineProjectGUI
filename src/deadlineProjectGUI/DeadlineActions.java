@@ -29,6 +29,9 @@ public class DeadlineActions {
         }
         try {
             Deadline.deadline_delete(d.getId());
+            JOptionPane.showMessageDialog(parent,
+                    "A határidő törölve lett.",
+                    "Törlés", JOptionPane.INFORMATION_MESSAGE);
             if (onDone != null) {
                 onDone.run();
             }
