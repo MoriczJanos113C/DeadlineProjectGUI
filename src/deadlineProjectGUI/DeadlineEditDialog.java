@@ -48,8 +48,6 @@ public class DeadlineEditDialog extends JDialog {
     private final JLabel dateError = createErrorLabel();
     private final JLabel priorityError = createErrorLabel();
     private final JLabel generalError = createErrorLabel();
-    private final JLabel expiredInfo = new JLabel(" ");
-    private FlatButton expiredButton;
 
     public DeadlineEditDialog(Frame owner, int deadlineId) {
         super(owner, "Határidő szerkesztése", true);
@@ -141,15 +139,6 @@ public class DeadlineEditDialog extends JDialog {
         form.setOpaque(false);
         form.setBorder(BorderFactory.createEmptyBorder(12, 22, 4, 22));
 
-        expiredInfo.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        expiredInfo.setForeground(EXPIRED);
-        GridBagConstraints gc = new GridBagConstraints();
-        gc.gridx = 0;
-        gc.gridy = 0;
-        gc.gridwidth = 2;
-        gc.anchor = GridBagConstraints.WEST;
-        form.add(expiredInfo, gc);
-
         addRow(form, 1, "Feladat neve", titleField, titleError, true);
         addRow(form, 2, "Leírás", descriptionField, descriptionError, true);
         addRow(form, 3, "Határidő dátuma", dateField, dateError, false);
@@ -192,17 +181,12 @@ public class DeadlineEditDialog extends JDialog {
     private JComponent buildButtons() {
         FlatButton cancel = new FlatButton("Mégse", GRAY);
         FlatButton save = new FlatButton("Mentés", BLUE);
-        expiredButton = new FlatButton("Lejárt kezelése", EXPIRED);
-        expiredButton.setPreferredSize(new Dimension(140, 34));
-        expiredButton.setToolTipText("Ismétlődő lejárt határidőt a következő alkalomra léptet");
         cancel.addActionListener(e -> dispose());
         save.addActionListener(e -> onSave());
-        expiredButton.addActionListener(e -> onHandleExpired());
         getRootPane().setDefaultButton(save);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttons.setOpaque(false);
-        buttons.add(expiredButton);
         buttons.add(cancel);
         buttons.add(save);
 
@@ -280,11 +264,7 @@ public class DeadlineEditDialog extends JDialog {
 
     private void updateExpiredState() {
         boolean expired = DeadlineUpdater.deadline_is_expired(deadlineId);
-        expiredInfo.setText(expired ? "Ez a határidő lejárt, a dátuma nem módosítható." : " ");
         dateField.setEditable(!expired);
-        dateField.setForeground(expired ? HINT : Color.WHITE);
-        dateField.setToolTipText(expired ? "Lejárt határidő dátuma nem módosítható" : null);
-        expiredButton.setVisible(expired);
     }
 
     private void clearErrors() {
