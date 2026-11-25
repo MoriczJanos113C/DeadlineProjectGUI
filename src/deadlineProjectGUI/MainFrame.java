@@ -26,6 +26,15 @@ public class MainFrame extends JFrame {
     private static final Color BACKGROUND = new Color(0xEFEFEF);
     private static final Color DARK = new Color(0x2B3A4A);
     private static final Color PLUS_BLUE = new Color(0x4A7AAB);
+    //Prioritás színkódok
+    private static final Color COLOR_DONE = new Color(0x16A34A);     // Kész - Zöld
+    private static final Color COLOR_EXPIRED = new Color(0xF59E0B);  // Lejárt - Narancssárga
+    private static final Color COLOR_HIGH = new Color(0xC83E2B);     // Nagy - Vérnarancs / pirosas
+    private static final Color COLOR_SOON = new Color(0xFACC15);     // 3 napon belül - Sárga
+    private static final Color COLOR_NORMAL = new Color(0x0D9488);   // Közepes - Türkizkék
+    private static final Color COLOR_LOW = new Color(0x0284C7);      // Alacsony - Kék
+    private static final Color COLOR_RECURRING = new Color(0x8B5CF6); // Ismétlődő - Lila
+
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
     private static final Locale HU = Locale.forLanguageTag("hu");
 
@@ -48,6 +57,9 @@ public class MainFrame extends JFrame {
         add(buildSidebar(), BorderLayout.WEST);
         add(buildMainArea(), BorderLayout.CENTER);
         refresh();
+
+        //Dinamikus frissítés a közelgő határidőkhöz
+        new Timer(60_000, e -> refresh()).start();
     }
 
     // ---------------------------------------------------------------- felépítés
@@ -60,9 +72,9 @@ public class MainFrame extends JFrame {
         nav.setOpaque(false);
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
         nav.setBorder(BorderFactory.createEmptyBorder(30, 0, 0, 0));
-        nav.add(createNavLabel("Year", View.YEAR));
-        nav.add(createNavLabel("Month", View.MONTH));
-        nav.add(createNavLabel("Day", View.DAY));
+        nav.add(createNavLabel("Év", View.YEAR));
+        nav.add(createNavLabel("Hónap", View.MONTH));
+        nav.add(createNavLabel("Nap", View.DAY));
 
         //Prio filter doboz és hívás
         nav.add(Box.createVerticalStrut(28));
@@ -71,7 +83,7 @@ public class MainFrame extends JFrame {
 
         //Status filter hívás
         nav.add(Box.createVerticalStrut(14));
-        nav.add(createSidebarDropdown("Status", new String[]{"All", "Active", "Done", "Expired"}));
+        nav.add(createSidebarDropdown("Státusz", new String[]{"Mind", "Aktív", "Kész", "Lejárt"}));
         //Status filter hívás
 
         //SEARCH bar
@@ -119,13 +131,13 @@ public class MainFrame extends JFrame {
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
 
-        JLabel label = new JLabel("Priority");
+        JLabel label = new JLabel("Prioritás");
         label.setForeground(new Color(0xD8E0E8));
         label.setFont(new Font("Segoe UI", Font.BOLD, 13));
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
 
-        JButton dropdown = new JButton("All") {
+        JButton dropdown = new JButton("Mind") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -168,7 +180,7 @@ public class MainFrame extends JFrame {
         JPopupMenu menu = new JPopupMenu();
         menu.setBackground(DARK);
         menu.setBorder(BorderFactory.createLineBorder(new Color(0xA6B2BE)));
-        for (String option : new String[]{"All", "Low", "Medium", "High"}) {
+        for (String option : new String[]{"Mind", "Alacsony", "Normál", "Magas"}) {
             JMenuItem item = new JMenuItem(option);
             item.setFont(new Font("Segoe UI", Font.PLAIN, 13));
             item.setForeground(Color.WHITE);
@@ -302,7 +314,7 @@ public class MainFrame extends JFrame {
                     gText.setFont(getFont());
                     FontMetrics fm = gText.getFontMetrics();
                     int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
-                    gText.drawString("Search here", 31, textY);
+                    gText.drawString("Keresés", 31, textY);
                     gText.dispose();
                 }
             }
@@ -495,8 +507,238 @@ public class MainFrame extends JFrame {
         }
         return grid;
     }
-
     private JComponent createDayCell(LocalDate date, List<Deadline> deadlines) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setBackground(Color.WHITE);
+        cell.setBorder(date.equals(LocalDate.now())
+                ? BorderFactory.createLineBorder(PLUS_BLUE, 2)
+                : BorderFactory.createLineBorder(new Color(0xCCCCCC)));
+        cell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        JLabel number = new JLabel(" " + date.getDayOfMonth());
+        number.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        number.setForeground(DARK);
+        cell.add(number, BorderLayout.NORTH);
+
+        if (!deadlines.isEmpty()) {
+            // Colored highlight pills for the tasks
+            JPanel itemsPanel = new JPanel();
+            itemsPanel.setLayout(new BoxLayout(itemsPanel, BoxLayout.Y_AXIS));
+            itemsPanel.setOpaque(false);
+            itemsPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+
+            for (int i = 0; i < Math.min(2, deadlines.size()); i++) {
+                Deadline d = deadlines.get(i);
+
+                JLabel badge = new JLabel(d.getTitle());
+                badge.setOpaque(true);
+                badge.setBackground(getDeadlineColor(d));
+                badge.setForeground(getDeadlineTextColor(d));
+                badge.setFont(new Font("Segoe UI", Font.BOLD, 10));
+                badge.setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 4));
+                badge.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+                badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                itemsPanel.add(badge);
+                itemsPanel.add(Box.createVerticalStrut(2));
+            }
+
+            if (deadlines.size() > 2) {
+                JLabel more = new JLabel("+" + (deadlines.size() - 2) + " további");
+                more.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+                more.setForeground(DARK);
+                more.setAlignmentX(Component.LEFT_ALIGNMENT);
+                itemsPanel.add(more);
+            }
+
+            cell.add(itemsPanel, BorderLayout.CENTER);
+
+            // Bottom-right rhombus stamps: yellow for within 3 days, purple for recurring
+            boolean hasUpcoming = deadlines.stream().anyMatch(MainFrame::isDeadlineUpcoming);
+            boolean hasRecurring = deadlines.stream().anyMatch(MainFrame::isDeadlineRecurring);
+            if (hasUpcoming || hasRecurring) {
+                JPanel stamps = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
+                stamps.setOpaque(false);
+                stamps.setBorder(BorderFactory.createEmptyBorder(0, 4, 2, 4));
+                if (hasUpcoming) {
+                    stamps.add(createStampDiamond(COLOR_SOON));
+                }
+                if (hasRecurring) {
+                    stamps.add(createStampDiamond(COLOR_RECURRING));
+                }
+                cell.add(stamps, BorderLayout.SOUTH);
+            }
+        }
+
+        cell.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                current = date;
+                view = View.DAY;
+                refresh();
+            }
+        });
+        return cell;
+    }
+    private static boolean isDeadlineRecurring(Deadline d) {
+        return d != null && DeadlineUpdater.deadline_get_recurrence(d.getId()) != DeadlineUpdater.Recurrence.NONE;
+    }
+//    private JComponent createDayCell(LocalDate date, List<Deadline> deadlines) {
+//        JPanel cell = new JPanel(new BorderLayout());
+//        cell.setBackground(Color.WHITE);
+//        cell.setBorder(date.equals(LocalDate.now())
+//                ? BorderFactory.createLineBorder(PLUS_BLUE, 2)
+//                : BorderFactory.createLineBorder(new Color(0xCCCCCC)));
+//        cell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+//
+//        JLabel number = new JLabel(" " + date.getDayOfMonth());
+//        number.setFont(new Font("Segoe UI", Font.BOLD, 13));
+//        number.setForeground(DARK);
+//        cell.add(number, BorderLayout.NORTH);
+//
+//        if (!deadlines.isEmpty()) {
+//            // Colored highlight pills for the tasks
+//            JPanel itemsPanel = new JPanel();
+//            itemsPanel.setLayout(new BoxLayout(itemsPanel, BoxLayout.Y_AXIS));
+//            itemsPanel.setOpaque(false);
+//            itemsPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+//
+//            for (int i = 0; i < Math.min(2, deadlines.size()); i++) {
+//                Deadline d = deadlines.get(i);
+//
+//                JLabel badge = new JLabel(d.getTitle());
+//                badge.setOpaque(true);
+//                badge.setBackground(getDeadlineColor(d));
+//                badge.setForeground(getDeadlineTextColor(d));
+//                badge.setFont(new Font("Segoe UI", Font.BOLD, 10));
+//                badge.setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 4));
+//                badge.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+//                badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+//
+//                itemsPanel.add(badge);
+//                itemsPanel.add(Box.createVerticalStrut(2));
+//            }
+//
+//            if (deadlines.size() > 2) {
+//                JLabel more = new JLabel("+" + (deadlines.size() - 2) + " további");
+//                more.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+//                more.setForeground(DARK);
+//                more.setAlignmentX(Component.LEFT_ALIGNMENT);
+//                itemsPanel.add(more);
+//            }
+//
+//            cell.add(itemsPanel, BorderLayout.CENTER);
+//
+//            // Show the yellow rhombus stamp under the text ONLY if a task is within 3 days
+//            boolean hasUpcoming = deadlines.stream().anyMatch(MainFrame::isDeadlineUpcoming);
+//            if (hasUpcoming) {
+//                JPanel stamps = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
+//                stamps.setOpaque(false);
+//                stamps.setBorder(BorderFactory.createEmptyBorder(0, 4, 2, 4));
+//                stamps.add(createStampDiamond(COLOR_SOON));
+//                cell.add(stamps, BorderLayout.SOUTH);
+//            }
+//        }
+//
+//        cell.addMouseListener(new MouseAdapter() {
+//            @Override
+//            public void mouseClicked(MouseEvent e) {
+//                current = date;
+//                view = View.DAY;
+//                refresh();
+//            }
+//        });
+//        return cell;
+//    }
+//
+    private JComponent createStampDiamond(Color fillColor) {
+        JPanel diamond = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int cx = getWidth() / 2;
+                int cy = getHeight() / 2;
+                int r = 6;
+                int[] xs = {cx, cx + r, cx, cx - r};
+                int[] ys = {cy - r, cy, cy + r, cy};
+
+                g2.setColor(fillColor);
+                g2.fillPolygon(xs, ys, 4);
+                g2.setColor(DARK);
+                g2.setStroke(new BasicStroke(1.2f));
+                g2.drawPolygon(xs, ys, 4);
+                g2.dispose();
+            }
+        };
+        diamond.setOpaque(false);
+        diamond.setPreferredSize(new Dimension(14, 14));
+        return diamond;
+    }
+
+    //Teszt
+    /*private JComponent createDayCell(LocalDate date, List<Deadline> deadlines) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setBackground(Color.WHITE);
+        cell.setBorder(date.equals(LocalDate.now())
+                ? BorderFactory.createLineBorder(PLUS_BLUE, 2)
+                : BorderFactory.createLineBorder(new Color(0xCCCCCC)));
+        cell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        JLabel number = new JLabel(" " + date.getDayOfMonth());
+        number.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        cell.add(number, BorderLayout.NORTH);
+
+        if (!deadlines.isEmpty()) {
+            JPanel itemsPanel = new JPanel();
+            itemsPanel.setLayout(new BoxLayout(itemsPanel, BoxLayout.Y_AXIS));
+            itemsPanel.setOpaque(false);
+            itemsPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+
+            for (int i = 0; i < Math.min(2, deadlines.size()); i++) {
+                Deadline d = deadlines.get(i);
+                String prefix = isDeadlineExpired(d) ? "◆ " : "";
+
+                JLabel badge = new JLabel(prefix + d.getTitle());
+                badge.setOpaque(true);
+                badge.setBackground(getDeadlineColor(d));
+                badge.setForeground(getDeadlineTextColor(d));
+                badge.setFont(new Font("Segoe UI", Font.BOLD, 10));
+                badge.setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 4));
+                badge.setMaximumSize(new Dimension(Integer.MAX_VALUE, 17));
+                badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                itemsPanel.add(badge);
+                itemsPanel.add(Box.createVerticalStrut(2));
+            }
+
+            if (deadlines.size() > 2) {
+                JLabel more = new JLabel("+" + (deadlines.size() - 2) + " további");
+                more.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+                more.setForeground(DARK);
+                more.setAlignmentX(Component.LEFT_ALIGNMENT);
+                itemsPanel.add(more);
+            }
+
+            cell.add(itemsPanel, BorderLayout.CENTER);
+        }
+
+        cell.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                current = date;
+                view = View.DAY;
+                refresh();
+            }
+        });
+        return cell;
+    }
+     //Teszt
+     */
+
+ /*  private JComponent createDayCell(LocalDate date, List<Deadline> deadlines) {
         JPanel cell = new JPanel(new BorderLayout());
         cell.setBackground(Color.WHITE);
         cell.setBorder(date.equals(LocalDate.now())
@@ -532,7 +774,7 @@ public class MainFrame extends JFrame {
             }
         });
         return cell;
-    }
+    } */
 
     // ---------------------------------------------------------------- napi nézet
     /*private JComponent buildDayView() {
@@ -652,6 +894,181 @@ public class MainFrame extends JFrame {
     }
 
     private JComponent createDeadlineRow(Deadline d) {
+        boolean expired = isDeadlineExpired(d);
+        boolean upcoming = isDeadlineUpcoming(d);
+        Color badgeBg = getDeadlineColor(d);
+        Color badgeFg = getDeadlineTextColor(d);
+
+        String desc = d.getDescription() == null ? "" : escape(d.getDescription());
+        String title = "<b>" + d.getDate().format(TIME) + "</b> - " + escape(d.getTitle());
+        if (expired) title = "<s>" + title + "</s>";
+
+        JLabel text = new JLabel("<html>" + title + "<br><i><font size=-1 color=#444444>" + desc + "</font></i></html>");
+        text.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        text.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+
+        String p = d.getPriority() == null ? "" : d.getPriority();
+        String badgeText = upcoming ? "◆ " + p : p;
+        JLabel priority = new JLabel(badgeText, SwingConstants.CENTER);
+        priority.setOpaque(true);
+        priority.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
+        priority.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        priority.setBackground(badgeBg);
+        priority.setForeground(badgeFg);
+
+        boolean locked = expired || d.isDone();
+
+        JCheckBox done = new JCheckBox();
+        done.setSelected(d.isDone());
+        done.setOpaque(false);
+        done.setEnabled(!locked);
+        if (!locked) {
+            done.addActionListener(e -> DeadlineActions.setDone(this, d, true, this::refresh));
+        }
+
+        FlatButton del = new FlatButton("🗑", new Color(0xB91C1C), Color.WHITE, new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        FlatButton edit = new FlatButton("✎", locked ? new Color(0x9CA3AF) : new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
+        del.setPreferredSize(new Dimension(30, 30));
+        del.addActionListener(e -> DeadlineActions.deleteDeadline(this, d, this::refresh));
+        edit.setPreferredSize(new Dimension(30, 30));
+        if (!locked) {
+            edit.addActionListener(e -> DeadlineEditDialog.open(this, d.getId(), this::refresh));
+        }
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        actions.setOpaque(false);
+        actions.add(del);
+        actions.add(edit);
+
+        JPanel row = createRow(text, priority, done, actions);
+        if (expired) {
+            row.setOpaque(true);
+            row.setBackground(new Color(0xD3D7DC));
+        }
+        return row;
+    }
+
+    private static boolean isDeadlineExpired(Deadline d) {
+        return !d.isDone() && d.getDate() != null && d.getDate().isBefore(LocalDateTime.now());
+    }
+
+    private static boolean isDeadlineUpcoming(Deadline d) {
+        if (d.isDone() || d.getDate() == null) {
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        return !d.getDate().isBefore(now) && !d.getDate().isAfter(now.plusDays(3));
+    }
+
+    private static Color getDeadlineColor(Deadline d) {
+        if (d.isDone()) {
+            return COLOR_DONE;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (d.getDate() != null && d.getDate().isBefore(now)) {
+            return COLOR_EXPIRED;
+        }
+        String p = d.getPriority() == null ? "" : d.getPriority().trim().toLowerCase();
+        if (p.equals("nagy") || p.equals("high")) {
+            return COLOR_HIGH;
+        }
+        if (d.getDate() != null && !d.getDate().isAfter(now.plusDays(3))) {
+            return COLOR_SOON;
+        }
+        if (p.equals("közepes") || p.equals("medium")) {
+            return COLOR_NORMAL;
+        }
+        return COLOR_LOW;
+    }
+
+    private static Color getDeadlineTextColor(Deadline d) {
+        Color bg = getDeadlineColor(d);
+        return (bg.equals(COLOR_SOON) || bg.equals(COLOR_EXPIRED)) ? DARK : Color.WHITE;
+    }
+
+   /* private JComponent createDeadlineRow(Deadline d) {
+        boolean expired = isDeadlineExpired(d);
+        Color badgeBg = getDeadlineColor(d);
+        Color badgeFg = getDeadlineTextColor(d);
+
+        String desc = d.getDescription() == null ? "" : escape(d.getDescription());
+        String title = "<b>" + d.getDate().format(TIME) + "</b> - " + escape(d.getTitle());
+        if (expired) title = "<s>" + title + "</s>";
+
+        JLabel text = new JLabel("<html>" + title + "<br><i><font size=-1 color=#444444>" + desc + "</font></i></html>");
+        text.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        text.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+
+        String p = d.getPriority() == null ? "" : d.getPriority();
+        String badgeText = expired ? "◆ " + p : p;
+        JLabel priority = new JLabel(badgeText, SwingConstants.CENTER);
+        priority.setOpaque(true);
+        priority.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
+        priority.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        priority.setBackground(badgeBg);
+        priority.setForeground(badgeFg);
+
+        boolean locked = expired || d.isDone();
+
+        JCheckBox done = new JCheckBox();
+        done.setSelected(d.isDone());
+        done.setOpaque(false);
+        done.setEnabled(!locked);
+        if (!locked) {
+            done.addActionListener(e -> DeadlineActions.setDone(this, d, true, this::refresh));
+        }
+
+        FlatButton del = new FlatButton("🗑", new Color(0xB91C1C), Color.WHITE, new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        FlatButton edit = new FlatButton("✎", locked ? new Color(0x9CA3AF) : new Color(0x6D28D9), Color.WHITE, new Font("Segoe UI Emoji", Font.BOLD, 14));
+        del.setPreferredSize(new Dimension(30, 30));
+        del.addActionListener(e -> DeadlineActions.deleteDeadline(this, d, this::refresh));
+        edit.setPreferredSize(new Dimension(30, 30));
+        if (!locked) {
+            edit.addActionListener(e -> DeadlineEditDialog.open(this, d.getId(), this::refresh));
+        }
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        actions.setOpaque(false);
+        actions.add(del);
+        actions.add(edit);
+
+        JPanel row = createRow(text, priority, done, actions);
+        if (expired) {
+            row.setOpaque(true);
+            row.setBackground(new Color(0xD3D7DC));
+        }
+        return row;
+    }
+
+    private static boolean isDeadlineExpired(Deadline d) {
+        return !d.isDone() && d.getDate() != null && d.getDate().isBefore(LocalDateTime.now());
+    }
+
+    private static Color getDeadlineColor(Deadline d) {
+        if (d.isDone()) {
+            return COLOR_DONE;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (d.getDate() != null && d.getDate().isBefore(now)) {
+            return COLOR_EXPIRED;
+        }
+        String p = d.getPriority() == null ? "" : d.getPriority().trim().toLowerCase();
+        if (p.equals("nagy") || p.equals("high")) {
+            return COLOR_HIGH;
+        }
+        if (d.getDate() != null && !d.getDate().isAfter(now.plusDays(3))) {
+            return COLOR_SOON;
+        }
+        if (p.equals("közepes") || p.equals("medium")) {
+            return COLOR_NORMAL;
+        }
+        return COLOR_LOW;
+    }
+
+    private static Color getDeadlineTextColor(Deadline d) {
+        Color bg = getDeadlineColor(d);
+        return (bg.equals(COLOR_SOON) || bg.equals(COLOR_EXPIRED)) ? DARK : Color.WHITE;
+    }*/
+
+    /*private JComponent createDeadlineRow(Deadline d) {
         boolean expired = !d.isDone() && d.getDate().isBefore(LocalDateTime.now());
 
         String desc = d.getDescription() == null ? "" : escape(d.getDescription());
@@ -702,7 +1119,7 @@ public class MainFrame extends JFrame {
             row.setBackground(new Color(0xD3D7DC));
         }
         return row;
-    }
+    } */
 
     private JPanel createRow(JComponent c0, JComponent c1, JComponent c2, JComponent c3) {
         JPanel row = new JPanel(new GridBagLayout());
@@ -790,6 +1207,79 @@ public class MainFrame extends JFrame {
             g2.dispose();
         }
     }
+//    private JComponent buildPriorityLegend() {
+//        JPanel legend = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
+//        legend.setOpaque(false);
+//        legend.setBorder(BorderFactory.createEmptyBorder(0, 15, 8, 15));
+//
+//        legend.add(legendItem("Lejárt", COLOR_EXPIRED, false));
+//        legend.add(legendItem("Kész", COLOR_DONE, false));
+//        legend.add(legendItem("Nagy prioritás", COLOR_HIGH, false));
+//        legend.add(legendItem("Közelgő (3 napon belül)", COLOR_SOON, true));
+//        legend.add(legendItem("Ismétlődő", COLOR_RECURRING, true));
+//        legend.add(legendItem("Közepes prioritás", COLOR_NORMAL, false));
+//        legend.add(legendItem("Alacsony prioritás", COLOR_LOW, false));
+//        return legend;
+//    }
+   /* private JComponent buildPriorityLegend() {
+        JPanel legend = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 8));
+        legend.setOpaque(false);
+        legend.setBorder(BorderFactory.createEmptyBorder(0, 15, 8, 15));
+
+        legend.add(legendItem("Lejárt", COLOR_EXPIRED, true));
+        legend.add(legendItem("Kész", COLOR_DONE, false));
+        legend.add(legendItem("Nagy prioritás", COLOR_HIGH, false));
+        legend.add(legendItem("Közelgő (3 napon belül)", COLOR_SOON, false));
+        legend.add(legendItem("Közepes prioritás", COLOR_NORMAL, false));
+        legend.add(legendItem("Alacsony prioritás", COLOR_LOW, false));
+        return legend;
+    }*/
+
+//    private JComponent legendItem(String text, Color color, boolean distinctShape) {
+//        JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+//        item.setOpaque(false);
+//
+//        JPanel marker = new JPanel() {
+//            @Override
+//            protected void paintComponent(Graphics g) {
+//                super.paintComponent(g);
+//                Graphics2D g2 = (Graphics2D) g.create();
+//                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+//
+//                int w = getWidth();
+//                int h = getHeight();
+//
+//                if (distinctShape) {
+//                    int cx = w / 2;
+//                    int cy = h / 2;
+//                    int[] xs = {cx, cx + 7, cx, cx - 7};
+//                    int[] ys = {cy - 7, cy, cy + 7, cy};
+//                    g2.setColor(color);
+//                    g2.fillPolygon(xs, ys, 4);
+//                    g2.setColor(DARK);
+//                    g2.setStroke(new BasicStroke(1.2f));
+//                    g2.drawPolygon(xs, ys, 4);
+//                } else {
+//                    g2.setColor(color);
+//                    g2.fillRoundRect(0, (h - 8) / 2, w - 1, 8, 4, 4);
+//                    g2.setColor(new Color(0x94A3B8));
+//                    g2.drawRoundRect(0, (h - 8) / 2, w - 1, 8, 4, 4);
+//                }
+//                g2.dispose();
+//            }
+//        };
+//        marker.setOpaque(false);
+//        marker.setPreferredSize(new Dimension(distinctShape ? 18 : 22, 16));
+//
+//        JLabel label = new JLabel(text);
+//        label.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+//        label.setForeground(DARK);
+//
+//        item.add(marker);
+//        item.add(label);
+//        return item;
+//    }
+    /*
     //Priority codex_2
     private JComponent buildPriorityLegend() {
         JPanel legend = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 8));
@@ -819,5 +1309,86 @@ public class MainFrame extends JFrame {
         item.add(label);
         return item;
     }
+    */
+private JComponent buildPriorityLegend() {
+    JPanel legend = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4)) {
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension d = super.getPreferredSize();
+            int width = getParent() != null ? getParent().getWidth() : 0;
+            if (width > 0) {
+                int rowWidth = 10;
+                int rows = 1;
+                int rowHeight = 0;
+                for (Component c : getComponents()) {
+                    Dimension cd = c.getPreferredSize();
+                    if (rowWidth + cd.width > width - 10 && rowWidth > 10) {
+                        rows++;
+                        rowWidth = 10;
+                    }
+                    rowWidth += cd.width + 10;
+                    rowHeight = Math.max(rowHeight, cd.height);
+                }
+                d.height = rows * (rowHeight + 4) + 8;
+            }
+            return d;
+        }
+    };
+    legend.setOpaque(false);
+    legend.setBorder(BorderFactory.createEmptyBorder(2, 10, 6, 10));
 
+    legend.add(legendItem("Lejárt", COLOR_EXPIRED, false));
+    legend.add(legendItem("Kész", COLOR_DONE, false));
+    legend.add(legendItem("Nagy prioritás", COLOR_HIGH, false));
+    legend.add(legendItem("Közelgő (3 napon belül)", COLOR_SOON, true));
+    legend.add(legendItem("Ismétlődő", COLOR_RECURRING, true));
+    legend.add(legendItem("Közepes prioritás", COLOR_NORMAL, false));
+    legend.add(legendItem("Alacsony prioritás", COLOR_LOW, false));
+    return legend;
+}
+
+    private JComponent legendItem(String text, Color color, boolean distinctShape) {
+        JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        item.setOpaque(false);
+
+        JPanel marker = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int w = getWidth();
+                int h = getHeight();
+
+                if (distinctShape) {
+                    int cx = w / 2;
+                    int cy = h / 2;
+                    int[] xs = {cx, cx + 6, cx, cx - 6};
+                    int[] ys = {cy - 6, cy, cy + 6, cy};
+                    g2.setColor(color);
+                    g2.fillPolygon(xs, ys, 4);
+                    g2.setColor(DARK);
+                    g2.setStroke(new BasicStroke(1.2f));
+                    g2.drawPolygon(xs, ys, 4);
+                } else {
+                    g2.setColor(color);
+                    g2.fillRoundRect(0, (h - 8) / 2, w - 1, 8, 4, 4);
+                    g2.setColor(new Color(0x94A3B8));
+                    g2.drawRoundRect(0, (h - 8) / 2, w - 1, 8, 4, 4);
+                }
+                g2.dispose();
+            }
+        };
+        marker.setOpaque(false);
+        marker.setPreferredSize(new Dimension(distinctShape ? 15 : 18, 15));
+
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        label.setForeground(DARK);
+
+        item.add(marker);
+        item.add(label);
+        return item;
+    }
 }
