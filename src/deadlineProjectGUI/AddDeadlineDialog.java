@@ -9,7 +9,12 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
+//TESZT
+import java.time.LocalDate;
+//TESZT
 import java.time.LocalDateTime;
+//TESZT
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
@@ -164,7 +169,7 @@ public class AddDeadlineDialog extends JDialog {
         // Az utolsó paraméter: true = a mező kitölti a teljes szélességet, false = fix méretű marad
         addRow(form, 0, "Feladat neve", titleField, titleError, true);
         addRow(form, 1, "Leírás", descriptionField, descriptionError, true);
-        addRow(form, 2, "Határidő dátuma", dateField, dateError, false);
+        addRow(form, 2, "Határidő dátuma", withDateTimePicker(dateField), dateError, false);
         addRow(form, 3, "Prioritás", priorityBox, priorityError, false);
         addRow(form, 4, "Ismétlődés", recurrenceBox, new JLabel(" "), false);
         return form;
@@ -525,6 +530,300 @@ public class AddDeadlineDialog extends JDialog {
      * Szövegmező, ami üres állapotban halvány "hint" szöveget (placeholder) mutat.
      * A hint csak megjelenik a mezőben, a mező tényleges tartalma (getText) üres marad.
      */
+
+    //MINI CALENDAR AND HOUR DATE PICKER
+    private JPanel withDateTimePicker(JTextField targetField) {
+        JPanel wrapper = new JPanel(new BorderLayout(4, 0));
+        wrapper.setOpaque(false);
+        wrapper.add(targetField, BorderLayout.CENTER);
+
+        FlatButton calBtn = new FlatButton("📅", FIELD_BG);
+        calBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        calBtn.setPreferredSize(new Dimension(38, 34));
+        wrapper.add(calBtn, BorderLayout.EAST);
+
+        calBtn.addActionListener(e -> {
+            LocalDateTime initial = LocalDateTime.now().withSecond(0).withNano(0);
+            try {
+                if (!targetField.getText().trim().isEmpty()) {
+                    initial = LocalDateTime.parse(targetField.getText().trim(), DATE_FORMAT);
+                }
+            } catch (Exception ignored) {
+            }
+
+            LocalDate[] selectedDate = {initial.toLocalDate()};
+            YearMonth[] currentMonth = {YearMonth.from(selectedDate[0])};
+            int[] selectedHour = {initial.getHour()};
+            int[] selectedMinute = {initial.getMinute()};
+
+            CardLayout cards = new CardLayout();
+            JPanel cardPanel = new JPanel(cards);
+            cardPanel.setPreferredSize(new Dimension(266, 252));
+
+            JPopupMenu popup = new JPopupMenu();
+            popup.setBackground(WINDOW_BG);
+            popup.setBorder(BorderFactory.createLineBorder(TITLE_BAR, 2));
+            popup.add(cardPanel);
+
+            JLabel chosenDateLabel = new JLabel("", SwingConstants.CENTER);
+
+            Runnable openTimeCard = () -> {
+                chosenDateLabel.setText(selectedDate[0].format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
+                cards.show(cardPanel, "TIME");
+            };
+
+            cardPanel.add(buildCalendarCard(currentMonth, selectedDate, openTimeCard), "CALENDAR");
+            cardPanel.add(buildTimeCard(chosenDateLabel, selectedHour, selectedMinute,
+                    () -> cards.show(cardPanel, "CALENDAR"),
+                    () -> {
+                        LocalDateTime result = selectedDate[0].atTime(selectedHour[0], selectedMinute[0]);
+                        targetField.setText(result.format(DATE_FORMAT));
+                        dateField.setBorder(FIELD_BORDER);
+                        dateError.setText(" ");
+                        popup.setVisible(false);
+                    }), "TIME");
+
+            cards.show(cardPanel, "CALENDAR");
+            popup.show(calBtn, 0, calBtn.getHeight() + 2);
+        });
+
+        return wrapper;
+    }
+    //Mini naptár megjelenítése
+    private JPanel buildCalendarCard(YearMonth[] currentMonth, LocalDate[] selectedDate, Runnable onDayPicked) {
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setBackground(WINDOW_BG);
+
+        FlatButton prevBtn = new FlatButton("<", GRAY);
+        FlatButton nextBtn = new FlatButton(">", GRAY);
+        prevBtn.setPreferredSize(new Dimension(32, 26));
+        nextBtn.setPreferredSize(new Dimension(32, 26));
+
+        JLabel monthLabel = new JLabel("", SwingConstants.CENTER);
+        monthLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        monthLabel.setForeground(Color.WHITE);
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(TITLE_BAR);
+        header.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        header.add(prevBtn, BorderLayout.WEST);
+        header.add(monthLabel, BorderLayout.CENTER);
+        header.add(nextBtn, BorderLayout.EAST);
+
+        JPanel grid = new JPanel(new GridLayout(0, 7, 3, 3));
+        grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createEmptyBorder(2, 8, 8, 8));
+
+        Runnable renderDays = new Runnable() {
+            @Override
+            public void run() {
+                grid.removeAll();
+                monthLabel.setText(currentMonth[0].getYear() + ". " + currentMonth[0].getMonth());
+
+                for (String dayName : new String[]{"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"}) {
+                    JLabel lbl = new JLabel(dayName, SwingConstants.CENTER);
+                    lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                    lbl.setForeground(TEXT_DARK);
+                    grid.add(lbl);
+                }
+
+                int firstDayOffset = currentMonth[0].atDay(1).getDayOfWeek().getValue() - 1;
+                for (int i = 0; i < firstDayOffset; i++) {
+                    grid.add(new JLabel(""));
+                }
+
+                for (int day = 1; day <= currentMonth[0].lengthOfMonth(); day++) {
+                    LocalDate date = currentMonth[0].atDay(day);
+                    boolean isSelected = date.equals(selectedDate[0]);
+
+                    JButton dayBtn = new JButton(String.valueOf(day));
+                    dayBtn.setFont(new Font("Segoe UI", isSelected ? Font.BOLD : Font.PLAIN, 12));
+                    dayBtn.setMargin(new Insets(0, 0, 0, 0));
+                    dayBtn.setContentAreaFilled(false);
+                    dayBtn.setOpaque(true);
+                    dayBtn.setBorderPainted(false);
+                    dayBtn.setFocusPainted(false);
+                    dayBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    dayBtn.setBackground(isSelected ? BLUE : FIELD_BG);
+                    dayBtn.setForeground(Color.WHITE);
+
+                    dayBtn.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseEntered(MouseEvent e) {
+                            if (!isSelected) dayBtn.setBackground(TITLE_BAR);
+                        }
+
+                        @Override
+                        public void mouseExited(MouseEvent e) {
+                            if (!isSelected) dayBtn.setBackground(FIELD_BG);
+                        }
+                    });
+
+                    dayBtn.addActionListener(ev -> {
+                        selectedDate[0] = date;
+                        onDayPicked.run();
+                    });
+                    grid.add(dayBtn);
+                }
+                grid.revalidate();
+                grid.repaint();
+            }
+        };
+
+        prevBtn.addActionListener(e -> {
+            currentMonth[0] = currentMonth[0].minusMonths(1);
+            renderDays.run();
+        });
+        nextBtn.addActionListener(e -> {
+            currentMonth[0] = currentMonth[0].plusMonths(1);
+            renderDays.run();
+        });
+
+        renderDays.run();
+        panel.add(header, BorderLayout.NORTH);
+        panel.add(grid, BorderLayout.CENTER);
+        return panel;
+    }
+    //mini óra menü megjelenítése
+    private JPanel buildTimeCard(JLabel dateHeader, int[] selectedHour, int[] selectedMinute,
+                                 Runnable onBack, Runnable onConfirm) {
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setBackground(WINDOW_BG);
+
+        FlatButton backBtn = new FlatButton("←", GRAY);
+        backBtn.setPreferredSize(new Dimension(34, 26));
+        backBtn.addActionListener(e -> onBack.run());
+
+        dateHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        dateHeader.setForeground(Color.WHITE);
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setBackground(TITLE_BAR);
+        top.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        top.add(backBtn, BorderLayout.WEST);
+        top.add(dateHeader, BorderLayout.CENTER);
+
+        // Side-by-side infinite wheel selectors (Hour : Minute)
+        JPanel wheelsArea = new JPanel(new GridBagLayout());
+        wheelsArea.setOpaque(false);
+
+        JLabel colon = new JLabel(":", SwingConstants.CENTER);
+        colon.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        colon.setForeground(TEXT_DARK);
+        colon.setBorder(BorderFactory.createEmptyBorder(16, 8, 0, 8));
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridy = 0;
+        gc.gridx = 0;
+        wheelsArea.add(createInfiniteWheel("Óra", 24, selectedHour), gc);
+        gc.gridx = 1;
+        wheelsArea.add(colon, gc);
+        gc.gridx = 2;
+        wheelsArea.add(createInfiniteWheel("Perc", 60, selectedMinute), gc);
+
+        FlatButton okBtn = new FlatButton("OK", BLUE);
+        okBtn.setPreferredSize(new Dimension(76, 30));
+        okBtn.addActionListener(e -> onConfirm.run());
+
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 6));
+        bottom.setOpaque(false);
+        bottom.add(okBtn);
+
+        panel.add(top, BorderLayout.NORTH);
+        panel.add(wheelsArea, BorderLayout.CENTER);
+        panel.add(bottom, BorderLayout.SOUTH);
+        return panel;
+    }
+    //Az óránál használt mini iPhone szerű kerék
+    private JPanel createInfiniteWheel(String title, int cycle, int[] targetValue) {
+        JPanel col = new JPanel(new BorderLayout(0, 4));
+        col.setOpaque(false);
+
+        JLabel lbl = new JLabel(title, SwingConstants.CENTER);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(TEXT_DARK);
+
+        int rowHeight = 28;
+        int visibleRows = 5;
+        int totalRows = cycle * 1000;
+        int startIndex = (cycle * 500) + targetValue[0];
+
+        JList<String> list = new JList<>(new AbstractListModel<>() {
+            @Override
+            public int getSize() {
+                return totalRows;
+            }
+
+            @Override
+            public String getElementAt(int index) {
+                return String.format("%02d", index % cycle);
+            }
+        });
+        list.setFixedCellHeight(rowHeight);
+        list.setVisibleRowCount(visibleRows);
+        list.setBackground(FIELD_BG);
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        list.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        list.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> l, Object value, int index,
+                                                          boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(l, value, index, false, false);
+                setHorizontalAlignment(SwingConstants.CENTER);
+                setFont(new Font("Segoe UI", isSelected ? Font.BOLD : Font.PLAIN, isSelected ? 15 : 13));
+                setBackground(isSelected ? BLUE : FIELD_BG);
+                setForeground(isSelected ? Color.WHITE : HINT);
+                setBorder(isSelected
+                        ? BorderFactory.createMatteBorder(1, 0, 1, 0, Color.WHITE)
+                        : BorderFactory.createEmptyBorder());
+                return this;
+            }
+        });
+
+        JScrollPane scroll = new JScrollPane(list);
+        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(BorderFactory.createLineBorder(TITLE_BAR, 2));
+        scroll.setPreferredSize(new Dimension(68, rowHeight * visibleRows));
+
+        Runnable centerSelection = () -> {
+            int idx = list.getSelectedIndex();
+            if (idx >= 2) {
+                scroll.getViewport().setViewPosition(new Point(0, (idx - 2) * rowHeight));
+            }
+        };
+
+        list.setSelectedIndex(startIndex);
+        SwingUtilities.invokeLater(centerSelection);
+
+        list.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int idx = list.locationToIndex(e.getPoint());
+                if (idx >= 2 && idx < totalRows - 2) {
+                    list.setSelectedIndex(idx);
+                    targetValue[0] = idx % cycle;
+                    centerSelection.run();
+                }
+            }
+        });
+
+        list.addMouseWheelListener(e -> {
+            int nextIdx = list.getSelectedIndex() + e.getWheelRotation();
+            if (nextIdx >= 2 && nextIdx < totalRows - 2) {
+                list.setSelectedIndex(nextIdx);
+                targetValue[0] = nextIdx % cycle;
+                centerSelection.run();
+            }
+        });
+
+        col.add(lbl, BorderLayout.NORTH);
+        col.add(scroll, BorderLayout.CENTER);
+        return col;
+    }
+   //MINI CALENDAR AND HOUR DATE PICKER
+
     private static class HintTextField extends JTextField {
         private final String hint;
 

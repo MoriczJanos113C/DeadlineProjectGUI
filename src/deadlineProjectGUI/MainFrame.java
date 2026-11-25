@@ -33,7 +33,7 @@ public class MainFrame extends JFrame {
     private LocalDate current = LocalDate.now();
 
     //private int yearBlockStart = 2020;
-    private static final Color SELECT_BLUE = new Color(0x89D4F5);
+    //private static final Color SELECT_BLUE = new Color(0x89D4F5);
 
     private final JLabel titleLabel = new JLabel("", SwingConstants.CENTER);
     private final JPanel content = new JPanel(new BorderLayout());
@@ -63,6 +63,21 @@ public class MainFrame extends JFrame {
         nav.add(createNavLabel("Year", View.YEAR));
         nav.add(createNavLabel("Month", View.MONTH));
         nav.add(createNavLabel("Day", View.DAY));
+
+        //Prio filter doboz és hívás
+        nav.add(Box.createVerticalStrut(28));
+        nav.add(createPriorityFilter());
+        //Prio filter doboz és hívás
+
+        //Status filter hívás
+        nav.add(Box.createVerticalStrut(14));
+        nav.add(createSidebarDropdown("Status", new String[]{"All", "Active", "Done", "Expired"}));
+        //Status filter hívás
+
+        //SEARCH bar
+        nav.add(Box.createVerticalStrut(14));
+        nav.add(createSidebarSearch());
+        //SEARCH bar
 
         FlatButton plus = new FlatButton("+", PLUS_BLUE, Color.WHITE, new Font("Segoe UI", Font.BOLD, 22));
         plus.setPreferredSize(new Dimension(46, 46));
@@ -95,6 +110,218 @@ public class MainFrame extends JFrame {
         navLabels.put(target, label);
         return label;
     }
+
+    //PRIO FILTER
+    private JComponent createPriorityFilter() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+
+        JLabel label = new JLabel("Priority");
+        label.setForeground(new Color(0xD8E0E8));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+
+        JButton dropdown = new JButton("All") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                int w = getWidth();
+                int h = getHeight();
+
+                g2.setColor(DARK);
+                g2.fillRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+                g2.setColor(new Color(0xA6B2BE));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
+                g2.drawString(getText(), 12, textY);
+
+                int cx = w - 15;
+                int cy = h / 2;
+                g2.fillPolygon(new int[]{cx, cx - 4, cx + 4}, new int[]{cy - 5, cy - 1, cy - 1}, 3);
+                g2.fillPolygon(new int[]{cx, cx - 4, cx + 4}, new int[]{cy + 5, cy + 1, cy + 1}, 3);
+
+                g2.dispose();
+            }
+        };
+        dropdown.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        dropdown.setContentAreaFilled(false);
+        dropdown.setBorderPainted(false);
+        dropdown.setFocusPainted(false);
+        dropdown.setOpaque(false);
+        dropdown.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        dropdown.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dropdown.setPreferredSize(new Dimension(138, 34));
+        dropdown.setMaximumSize(new Dimension(138, 34));
+
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBackground(DARK);
+        menu.setBorder(BorderFactory.createLineBorder(new Color(0xA6B2BE)));
+        for (String option : new String[]{"All", "Low", "Medium", "High"}) {
+            JMenuItem item = new JMenuItem(option);
+            item.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            item.setForeground(Color.WHITE);
+            item.setBackground(DARK);
+            item.setOpaque(true);
+            item.setPreferredSize(new Dimension(136, 28));
+            item.addActionListener(e -> dropdown.setText(option));
+            menu.add(item);
+        }
+        dropdown.addActionListener(e -> menu.show(dropdown, 0, dropdown.getHeight() + 2));
+
+        panel.add(label);
+        panel.add(dropdown);
+        return panel;
+    }
+    //PRIO FILTER
+
+    //Status filter
+    private JComponent createSidebarDropdown(String title, String[] options) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+
+        JLabel label = new JLabel(title);
+        label.setForeground(new Color(0xD8E0E8));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+
+        JButton dropdown = new JButton(options[0]) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                int w = getWidth();
+                int h = getHeight();
+
+                g2.setColor(DARK);
+                g2.fillRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+                g2.setColor(new Color(0xA6B2BE));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
+                g2.drawString(getText(), 12, textY);
+
+                int cx = w - 15;
+                int cy = h / 2;
+                g2.fillPolygon(new int[]{cx, cx - 4, cx + 4}, new int[]{cy - 5, cy - 1, cy - 1}, 3);
+                g2.fillPolygon(new int[]{cx, cx - 4, cx + 4}, new int[]{cy + 5, cy + 1, cy + 1}, 3);
+
+                g2.dispose();
+            }
+        };
+        dropdown.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        dropdown.setContentAreaFilled(false);
+        dropdown.setBorderPainted(false);
+        dropdown.setFocusPainted(false);
+        dropdown.setOpaque(false);
+        dropdown.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        dropdown.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dropdown.setPreferredSize(new Dimension(138, 34));
+        dropdown.setMaximumSize(new Dimension(138, 34));
+
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBackground(DARK);
+        menu.setBorder(BorderFactory.createLineBorder(new Color(0xA6B2BE)));
+        for (String option : options) {
+            JMenuItem item = new JMenuItem(option);
+            item.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            item.setForeground(Color.WHITE);
+            item.setBackground(DARK);
+            item.setOpaque(true);
+            item.setPreferredSize(new Dimension(136, 28));
+            item.addActionListener(e -> dropdown.setText(option));
+            menu.add(item);
+        }
+        dropdown.addActionListener(e -> menu.show(dropdown, 0, dropdown.getHeight() + 2));
+
+        panel.add(label);
+        panel.add(dropdown);
+        return panel;
+    }
+    //STATUS Filter
+
+    //SEARCH bar
+    private JComponent createSidebarSearch() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+
+        JTextField searchField = new JTextField() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                int w = getWidth();
+                int h = getHeight();
+
+                // Dark rounded background and border
+                g2.setColor(DARK);
+                g2.fillRoundRect(0, 0, w - 1, h - 1, 8, 8);
+                g2.setColor(new Color(0xA6B2BE));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 8, 8);
+
+                // Magnifying glass icon
+                g2.setColor(new Color(0x8E99A4));
+                g2.setStroke(new BasicStroke(1.8f));
+                g2.drawOval(11, 11, 10, 10);
+                g2.drawLine(20, 20, 24, 24);
+
+                g2.dispose();
+                super.paintComponent(g);
+
+                // Placeholder text when empty
+                if (getText().isEmpty()) {
+                    Graphics2D gText = (Graphics2D) g.create();
+                    gText.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    gText.setColor(new Color(0x8E99A4));
+                    gText.setFont(getFont());
+                    FontMetrics fm = gText.getFontMetrics();
+                    int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
+                    gText.drawString("Search here", 31, textY);
+                    gText.dispose();
+                }
+            }
+        };
+
+        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        searchField.setForeground(Color.WHITE);
+        searchField.setCaretColor(Color.WHITE);
+        searchField.setOpaque(false);
+        searchField.setBorder(BorderFactory.createEmptyBorder(0, 31, 0, 10));
+        searchField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        searchField.setPreferredSize(new Dimension(138, 34));
+        searchField.setMaximumSize(new Dimension(138, 34));
+
+        panel.add(searchField);
+        return panel;
+    }
+    //SEARCH bar
+
 
     private JComponent buildMainArea() {
         FlatButton prev = new FlatButton("←", DARK, Color.WHITE, new Font("Segoe UI", Font.BOLD, 18));
