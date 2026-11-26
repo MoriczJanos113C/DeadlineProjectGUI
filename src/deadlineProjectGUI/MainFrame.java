@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 
 public class MainFrame extends JFrame {
@@ -40,6 +42,9 @@ public class MainFrame extends JFrame {
 
     private View view = View.MONTH;
     private LocalDate current = LocalDate.now();
+    private String selectedPriority = "Mind";
+    private String selectedStatus = "Mind";
+    private String searchText = "";
 
     //private int yearBlockStart = 2020;
     //private static final Color SELECT_BLUE = new Color(0x89D4F5);
@@ -187,7 +192,11 @@ public class MainFrame extends JFrame {
             item.setBackground(DARK);
             item.setOpaque(true);
             item.setPreferredSize(new Dimension(136, 28));
-            item.addActionListener(e -> dropdown.setText(option));
+            item.addActionListener(e -> {
+                selectedPriority = option;
+                dropdown.setText(option);
+                refresh();
+            });
             menu.add(item);
         }
         dropdown.addActionListener(e -> menu.show(dropdown, 0, dropdown.getHeight() + 2));
@@ -262,7 +271,11 @@ public class MainFrame extends JFrame {
             item.setBackground(DARK);
             item.setOpaque(true);
             item.setPreferredSize(new Dimension(136, 28));
-            item.addActionListener(e -> dropdown.setText(option));
+            item.addActionListener(e -> {
+                selectedStatus = option;
+                dropdown.setText(option);
+                refresh();
+            });
             menu.add(item);
         }
         dropdown.addActionListener(e -> menu.show(dropdown, 0, dropdown.getHeight() + 2));
@@ -328,6 +341,30 @@ public class MainFrame extends JFrame {
         searchField.setAlignmentX(Component.LEFT_ALIGNMENT);
         searchField.setPreferredSize(new Dimension(138, 34));
         searchField.setMaximumSize(new Dimension(138, 34));
+
+        searchField.getDocument().addDocumentListener(
+                new DocumentListener() {
+
+                    private void updateSearch() {
+                        searchText = searchField.getText();
+                        refresh();
+                    }
+
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        updateSearch();
+                    }
+
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        updateSearch();
+                    }
+
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        updateSearch();
+                    }
+                });
 
         panel.add(searchField);
         return panel;
@@ -1153,12 +1190,27 @@ public class MainFrame extends JFrame {
 
     // ---------------------------------------------------------------- segédek
     private List<Deadline> load(LocalDateTime from, LocalDateTime to) {
+
         try {
-            return DeadlineLoader.loadBetween(from, to);
+
+            return DeadlineLoader.loadFiltered(
+                    from,
+                    to,
+                    selectedPriority,
+                    selectedStatus,
+                    searchText
+            );
+
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Nem sikerült betölteni a határidőket!\n" + ex.getMessage(),
-                    "Adatbázis hiba", JOptionPane.ERROR_MESSAGE);
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Nem sikerült betölteni a határidőket!\n"
+                            + ex.getMessage(),
+                    "Adatbázis hiba",
+                    JOptionPane.ERROR_MESSAGE
+            );
+
             return List.of();
         }
     }
